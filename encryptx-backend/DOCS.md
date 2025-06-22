@@ -84,7 +84,7 @@ The 0xFF marker allows automatic detection of encryption mode during decryption.
 4. Generate cryptographically secure 12-byte nonce
 5. Perform authenticated encryption (provides confidentiality + integrity)
 6. Create JSON header with filename, key, version, and timestamp
-7. Assemble final format: [header_len][header][nonce][ciphertext]
+7. Assemble final format: `[header_len][header][nonce][ciphertext]`
 8. Automatically zero all key material from memory
 
 ### Password-Based Encryption (Async)

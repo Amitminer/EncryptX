@@ -20,7 +20,8 @@ use actix_web::http::header::{CONTENT_DISPOSITION, CONTENT_TYPE};
 use actix_web::web::Bytes;
 use actix_web::{App, HttpRequest, HttpResponse, HttpServer, Responder, get, post};
 use base64::{Engine as _, engine::general_purpose};
-use rand::{RngCore, rng};
+use rand::TryRngCore;
+use rand::rngs::OsRng;
 use zeroize::Zeroize;
 mod crypto;
 
@@ -28,7 +29,7 @@ mod crypto;
 /// Uses the system's secure random number generator.
 fn generate_secure_key() -> [u8; 32] {
     let mut key = [0u8; 32];
-    rng().fill_bytes(&mut key);
+    OsRng.try_fill_bytes(&mut key).expect("Failed to generate secure key");
     key
 }
 
@@ -36,8 +37,6 @@ fn generate_secure_key() -> [u8; 32] {
 /// Mode is determined by presence of x-password header.
 #[post("/encrypt")]
 async fn encrypt_file(req: HttpRequest, body: Bytes) -> impl Responder {
-    let mut final_key = [0u8; 32];
-
     // Check for password-based encryption request
     if let Some(password_header) = req.headers().get("x-password") {
         let password = match password_header.to_str() {
@@ -47,7 +46,7 @@ async fn encrypt_file(req: HttpRequest, body: Bytes) -> impl Responder {
 
         // Generate random 32-byte salt for Argon2 key derivation
         let mut salt = [0u8; 32];
-        rng().fill_bytes(&mut salt);
+        OsRng.try_fill_bytes(&mut salt).expect("Failed to fill salt");
 
         let orig_name = req
             .headers()
@@ -63,27 +62,29 @@ async fn encrypt_file(req: HttpRequest, body: Bytes) -> impl Responder {
         // Use async encryption to avoid blocking the server thread
         match crypto::encrypt_with_password_async(&body, password, orig_name, salt.to_vec()).await {
             Ok(encrypted) => {
-                final_key.zeroize();
                 HttpResponse::Ok()
                     .insert_header((CONTENT_TYPE, "application/octet-stream"))
                     .insert_header((CONTENT_DISPOSITION, "attachment; filename=\"encrypted.xd\""))
                     .body(encrypted)
             }
             Err(e) => {
-                final_key.zeroize();
                 HttpResponse::InternalServerError().body(format!("Encryption error: {}", e))
             }
         }
     } else {
         // Key-based encryption mode
+        let generate_and_log_key = || {
+            let random_key = generate_secure_key();
+            let key_b64_str = general_purpose::STANDARD.encode(&random_key);
+            println!("Generated random encryption key: {}", key_b64_str);
+            random_key
+        };
+
         let mut final_key = if let Some(val) = req.headers().get("x-enc-key") {
             let key_b64 = val.to_str().unwrap_or("");
             if key_b64.is_empty() {
                 // No key provided, generate a secure random one
-                let random_key = generate_secure_key();
-                let key_b64_str = general_purpose::STANDARD.encode(&random_key);
-                println!("Generated random encryption key: {}", key_b64_str);
-                random_key
+                generate_and_log_key()
             } else {
                 // Decode provided base64 key
                 match general_purpose::STANDARD.decode(key_b64) {
@@ -106,10 +107,7 @@ async fn encrypt_file(req: HttpRequest, body: Bytes) -> impl Responder {
             }
         } else {
             // No key header at all, generate random key
-            let random_key = generate_secure_key();
-            let key_b64_str = general_purpose::STANDARD.encode(&random_key);
-            println!("Generated random encryption key: {}", key_b64_str);
-            random_key
+            generate_and_log_key()
         };
 
         let orig_name = req

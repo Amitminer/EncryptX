@@ -1,10 +1,9 @@
 // Decryption Types
-
-interface DecryptFileStatus {
+export interface DecryptFileStatus {
   [fileName: string]: 'verifying' | 'decrypting' | 'done' | 'error' | string
 }
 
-interface DecryptButtonProps {
+export interface DecryptButtonProps {
   isDisabled: boolean
   isProcessing: boolean
   fileCount: number
@@ -12,17 +11,17 @@ interface DecryptButtonProps {
   onClick: () => void
 }
 
-interface DecryptionError {
+export interface DecryptionError {
   status: number
   message: string
 }
 
 // Encryption Types
-interface EncryptFileStatus {
+export interface EncryptFileStatus {
   [fileName: string]: 'encrypting' | 'done' | 'error' | string
 }
 
-interface EncryptButtonProps {
+export interface EncryptButtonProps {
   isDisabled: boolean
   isProcessing: boolean
   fileCount: number
@@ -31,12 +30,12 @@ interface EncryptButtonProps {
 
 // Global Types
 
-interface PasswordInputProps {
+export interface PasswordInputProps {
   password: string
   onChange: (password: string) => void
 }
 
-interface FileListItemProps {
+export interface FileListItemProps {
   file: File
   index: number
   status?: string

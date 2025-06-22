@@ -5,10 +5,10 @@ import { useDropzone } from "react-dropzone"
 import { Button } from "@/app/ui/button"
 import {
   Unlock, Upload, Eye, KeyRound, Shield, Zap, File,
-  CheckCircle, AlertCircle
 } from "lucide-react"
 import { formatFileSize } from "@/app/utils"
 import { DecryptStatusHelper } from "@/app/utils/status-helper"
+import type {DecryptFileStatus, DecryptButtonProps, FileListItemProps, PasswordInputProps} from "@/app/types"
 
 // Constants
 const DECRYPTION_ENDPOINT = "/decrypt"
@@ -252,9 +252,8 @@ export function DecryptForm() {
       return getErrorMessage(xhr.status)
     }
   }, [])
-
-  const decryptSingleFile = useCallback(async (file: File): Promise<void> => {
-    return new Promise(async (resolve, reject) => {
+  const decryptSingleFile = useCallback((file: File): Promise<void> => {
+    return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest()
       const url = `${BACKEND_URL}${DECRYPTION_ENDPOINT}`
 
@@ -267,28 +266,30 @@ export function DecryptForm() {
 
       xhr.responseType = "blob"
 
-      xhr.onload = async () => {
+      xhr.onload = () => {
         if (xhr.status === 200) {
           downloadFile(xhr.response, xhr)
           resolve()
         } else {
-          try {
-            const errorMessage = await handleDecryptError(xhr)
-            reject(new Error(errorMessage))
-          } catch (error) {
-            reject(new Error(getErrorMessage(xhr.status)))
-          }
+          handleDecryptError(xhr)
+            .then((errorMessage) => {
+              reject(new Error(errorMessage))
+            })
+            .catch(() => {
+              reject(new Error(getErrorMessage(xhr.status)))
+            })
         }
       }
 
       xhr.onerror = () => reject(new Error("Network error"))
 
-      try {
-        const buffer = await file.arrayBuffer()
-        xhr.send(buffer)
-      } catch (error) {
-        reject(new Error("Failed to read file"))
-      }
+      file.arrayBuffer()
+        .then((buffer) => {
+          xhr.send(buffer)
+        })
+        .catch(() => {
+          reject(new Error("Failed to read file"))
+        })
     })
   }, [password, hasPassword, downloadFile, handleDecryptError])
 

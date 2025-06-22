@@ -3,17 +3,18 @@
 import { useState, useCallback, useMemo } from "react"
 import { useDropzone } from "react-dropzone"
 import { Button } from "@/app/ui/button"
-import { 
-  Lock, Upload, Eye, KeyRound, Shield, Zap, File, Cpu 
+import {
+  Lock, Upload, Eye, KeyRound, Shield, Zap, File, Cpu
 } from "lucide-react"
 import { formatFileSize } from "@/app/utils"
 import { EncryptStatusHelper } from "@/app/utils/status-helper"
+import {EncryptFileStatus, EncryptButtonProps, PasswordInputProps, FileListItemProps} from "@/app/types"
 
 // Constants
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080/encrypt"
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080"
 const ENCRYPTION_ENDPOINT = "/encrypt"
 const ENCRYPTED_FILE_EXTENSION = ".xd"
-const KEY_SIZE_BYTES = 32 
+const KEY_SIZE_BYTES = 32
 
 const generateSecureKey = (): string => {
   const array = new Uint8Array(KEY_SIZE_BYTES)
@@ -22,7 +23,8 @@ const generateSecureKey = (): string => {
 }
 
 const getFileNameWithoutExtension = (fileName: string): string => {
-  return fileName.split(".")[0]
+  const lastDotIndex = fileName.lastIndexOf(".")
+  return lastDotIndex === -1 ? fileName : fileName.substring(0, lastDotIndex)
 }
 
 // Subcomponents
@@ -38,8 +40,8 @@ const AnimatedBackground = () => (
 const HeroIcon = () => (
   <div className="flex justify-center mb-10 sm:mb-12 relative">
     <div className="relative">
-      <div 
-        className="absolute inset-0 w-24 h-24 border-2 border-pink-400/20 rounded-full animate-spin" 
+      <div
+        className="absolute inset-0 w-24 h-24 border-2 border-pink-400/20 rounded-full animate-spin"
         style={{ animationDirection: 'reverse' }}
       />
       <div className="absolute inset-2 w-20 h-20 border border-cyan-400/30 rounded-full animate-pulse" />
@@ -73,7 +75,7 @@ const TitleSection = () => (
 )
 
 const FileListItem = ({ file, index, status, onRemove, isProcessing }: FileListItemProps) => (
-  <div 
+  <div
     className="flex flex-wrap items-center gap-3 bg-gradient-to-r from-zinc-800/80 to-zinc-900/60 rounded-xl px-4 py-3 border border-pink-400/20 hover:border-cyan-400/40 transition-all duration-300 group/file hover:bg-pink-900/20"
     style={{ animationDelay: `${index * 100}ms` }}
   >
@@ -84,7 +86,7 @@ const FileListItem = ({ file, index, status, onRemove, isProcessing }: FileListI
     <span className="text-xs text-gray-400 bg-zinc-800/60 px-2 py-1 rounded-full">
       {formatFileSize(file.size)} MB
     </span>
-    
+
     {status && (
       <div className="flex items-center gap-2 ml-2">
         {EncryptStatusHelper.getStatusIcon(status)}
@@ -93,12 +95,12 @@ const FileListItem = ({ file, index, status, onRemove, isProcessing }: FileListI
         </span>
       </div>
     )}
-    
+
     <button
       type="button"
       aria-label={`Remove ${file.name}`}
       className="ml-auto w-10 h-10 flex items-center justify-center text-pink-400 hover:text-pink-300 hover:bg-pink-400/10 rounded-full transition-all duration-200 group-hover/file:opacity-100 opacity-80 text-2xl"
-      onClick={(e) => { 
+      onClick={(e) => {
         e.stopPropagation()
         onRemove(file.name)
       }}
@@ -143,16 +145,16 @@ const EncryptButton = ({ isDisabled, isProcessing, fileCount, onClick }: Encrypt
       className="w-full py-6 text-xl font-semibold bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white rounded-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed border-0 shadow-lg relative overflow-hidden group hover:shadow-pink-500/20"
     >
       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
-      
+
       {isProcessing ? (
         <div className="flex items-center justify-center">
           <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin mr-3" />
           <span className="animate-pulse">Encrypting...</span>
           <div className="ml-3 flex space-x-1">
             {[0, 150, 300].map((delay, i) => (
-              <div 
+              <div
                 key={i}
-                className="w-1 h-1 bg-white rounded-full animate-bounce" 
+                className="w-1 h-1 bg-white rounded-full animate-bounce"
                 style={{ animationDelay: `${delay}ms` }}
               />
             ))}
@@ -166,7 +168,7 @@ const EncryptButton = ({ isDisabled, isProcessing, fileCount, onClick }: Encrypt
         </div>
       )}
     </Button>
-    
+
     <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-pink-600/20 to-purple-600/20 blur-xl -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
   </div>
 )
@@ -221,15 +223,15 @@ export function EncryptForm() {
       xhr.open("POST", url)
       xhr.setRequestHeader("Content-Type", "application/octet-stream")
       xhr.setRequestHeader("x-orig-filename", file.name)
-      
+
       if (password) {
         xhr.setRequestHeader("x-password", password)
       } else {
         xhr.setRequestHeader("x-enc-key", generateSecureKey())
       }
-      
+
       xhr.responseType = "blob"
-      
+
       xhr.onload = () => {
         if (xhr.status === 200) {
           downloadFile(xhr.response, file.name)
@@ -238,9 +240,9 @@ export function EncryptForm() {
           reject(new Error(`HTTP ${xhr.status}`))
         }
       }
-      
+
       xhr.onerror = () => reject(new Error("Network error"))
-      
+
       file.arrayBuffer()
         .then(buffer => xhr.send(buffer))
         .catch(reject)
@@ -249,27 +251,27 @@ export function EncryptForm() {
 
   const handleEncrypt = useCallback(async () => {
     if (!hasFiles) return
-    
+
     setIsProcessing(true)
     const newStatus: EncryptFileStatus = {}
-    
+
     for (const file of files) {
       try {
         newStatus[file.name] = 'encrypting'
         setStatus({ ...newStatus })
-        
+
         await encryptSingleFile(file)
-        
+
         newStatus[file.name] = 'done'
         setStatus({ ...newStatus })
-        
+
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
         newStatus[file.name] = `Error: ${errorMessage}`
         setStatus({ ...newStatus })
       }
     }
-    
+
     setIsProcessing(false)
   }, [hasFiles, files, encryptSingleFile])
 
@@ -284,13 +286,12 @@ export function EncryptForm() {
         {/* File Upload Area */}
         <div
           {...getRootProps()}
-          className={`relative upload-area-cyberpunk p-4 sm:p-8 md:p-10 text-center cursor-pointer transition-all duration-500 mb-10 sm:mb-12 rounded-2xl border border-pink-700/40 bg-zinc-900/70 shadow-inner group ${
-            isDragActive ? "scale-105 ring-2 ring-pink-500 border-pink-400 shadow-pink-400/25" : ""
-          }`}
+          className={`relative upload-area-cyberpunk p-4 sm:p-8 md:p-10 text-center cursor-pointer transition-all duration-500 mb-10 sm:mb-12 rounded-2xl border border-pink-700/40 bg-zinc-900/70 shadow-inner group ${isDragActive ? "scale-105 ring-2 ring-pink-500 border-pink-400 shadow-pink-400/25" : ""
+            }`}
           style={{ minHeight: 180 }}
         >
           <input {...getInputProps()} />
-          
+
           {/* Corner accents */}
           {[
             { position: "top-2 left-2", borders: "border-l-2 border-t-2", color: "border-pink-400" },
@@ -298,7 +299,7 @@ export function EncryptForm() {
             { position: "bottom-2 left-2", borders: "border-l-2 border-b-2", color: "border-cyan-400" },
             { position: "bottom-2 right-2", borders: "border-r-2 border-b-2", color: "border-pink-400" }
           ].map((accent, i) => (
-            <div 
+            <div
               key={i}
               className={`absolute ${accent.position} w-6 h-6 ${accent.borders} ${accent.color} opacity-60 group-hover:opacity-100 transition-opacity`}
             />
@@ -306,14 +307,13 @@ export function EncryptForm() {
 
           <div className="mb-8 relative">
             <div className="relative inline-block">
-              <Upload className={`w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 text-pink-400 mx-auto mb-4 sm:mb-6 transition-all duration-300 ${
-                isDragActive ? "text-cyan-400 scale-110" : "group-hover:text-purple-400"
-              }`} />
+              <Upload className={`w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 text-pink-400 mx-auto mb-4 sm:mb-6 transition-all duration-300 ${isDragActive ? "text-cyan-400 scale-110" : "group-hover:text-purple-400"
+                }`} />
               {isDragActive && (
                 <div className="absolute inset-0 w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 mx-auto border-2 border-pink-400 rounded-full animate-ping opacity-60" />
               )}
             </div>
-            
+
             {hasFiles ? (
               <div className="space-y-4">
                 <p className="text-white text-base sm:text-lg md:text-xl font-medium mb-4 sm:mb-6">
@@ -356,7 +356,7 @@ export function EncryptForm() {
         </div>
 
         <PasswordInput password={password} onChange={setPassword} />
-        
+
         <EncryptButton
           isDisabled={isButtonDisabled}
           isProcessing={isProcessing}

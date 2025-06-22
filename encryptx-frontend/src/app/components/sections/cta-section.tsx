@@ -75,7 +75,12 @@ export function CTASection() {
                 </div>
               </Link>
 
-              <div className="relative group flex-1 sm:flex-none">
+              <a
+                href="https://github.com/Amitminer/EncryptX"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="relative group flex-1 sm:flex-none"
+              >
                 <div className="absolute -inset-1 bg-gradient-to-r from-gray-600 to-gray-400 rounded-full blur-lg opacity-20 group-hover:opacity-40 transition duration-300"></div>
                 <Button
                   variant="outline"
@@ -84,7 +89,7 @@ export function CTASection() {
                   <SiGithub className="w-4 sm:w-5 md:w-6 h-4 sm:h-5 md:h-6 mr-2 sm:mr-3 md:mr-4 group-hover:rotate-12 transition-transform duration-300" />
                   View on GitHub
                 </Button>
-              </div>
+              </a>
             </div>
 
             <div className="flex flex-col sm:flex-row items-center justify-center space-y-3 sm:space-y-0 sm:space-x-4 md:space-x-6 lg:space-x-8 text-gray-400 text-xs sm:text-sm md:text-base">

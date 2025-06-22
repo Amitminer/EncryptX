@@ -11,7 +11,13 @@ export function getVersion() {
 }
 
 export const formatFileSize = (bytes: number): string => {
-  return (bytes / 1024 / 1024).toFixed(2)
+  if (bytes <= 0 || isNaN(bytes)) return "0 MB";
+  const mb = bytes / (1024 * 1024);
+  if (mb >= 1) {
+    return `${mb.toFixed(2)} MB`;
+  }
+  const kb = bytes / 1024;
+  return `${kb.toFixed(2)} KB`;
 }
 
 export const GitHubUrl = "https://github.com/Amitminer/EncryptX";

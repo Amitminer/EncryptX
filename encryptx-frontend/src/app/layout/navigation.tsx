@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { HomeIcon, Lock, Menu, X, Zap } from "lucide-react"
-import { useState } from "react"
+import { useState, ComponentType, SVGProps } from "react"
 
 export function Navigation() {
   const pathname = usePathname()
@@ -79,8 +79,6 @@ export function Navigation() {
     </nav>
   )
 }
-
-import { ComponentType, SVGProps } from "react";
 
 type NavItem = { href: string; label: string; icon: ComponentType<SVGProps<SVGSVGElement>> };
 type MobileNavProps = {
