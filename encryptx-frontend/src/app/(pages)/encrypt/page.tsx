@@ -5,6 +5,11 @@ export const metadata: Metadata = {
   title: "EncryptX | Encrypt",
 }
 
+/**
+ * Renders the encryption page UI, providing a form for users to encrypt files and information about file privacy.
+ *
+ * Displays a header, an encryption form, a link to the decryption page, and a privacy notice regarding file handling.
+ */
 export default function EncryptPage() {
   return (
     <div className="container mx-auto px-4">

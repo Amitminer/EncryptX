@@ -4,6 +4,11 @@ import { useEffect } from "react"
 
 const PING_INTERVAL_MS = 14 * 60 * 1000 // 14 minutes, to be safe for platforms with 15-min timeouts
 
+/**
+ * React client component that periodically pings the backend server's health endpoint to keep it active.
+ *
+ * Sends an initial health check request on mount and continues to send requests at regular intervals. Does not render any UI.
+ */
 export function BackendKeepAlive() {
   useEffect(() => {
     const pingBackend = async () => {

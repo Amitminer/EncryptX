@@ -173,7 +173,11 @@ const EncryptButton = ({ isDisabled, isProcessing, fileCount, onClick }: Encrypt
   </div>
 )
 
-// Main component
+/**
+ * Renders a form interface for encrypting files with optional password protection.
+ *
+ * Users can select or drag-and-drop multiple files, optionally enter a password, and initiate encryption. Each file is sent to a backend service for encryption and is automatically downloaded upon completion. The UI displays encryption status for each file and provides animated visual feedback throughout the process.
+ */
 export function EncryptForm() {
   const [files, setFiles] = useState<File[]>([])
   const [password, setPassword] = useState("")

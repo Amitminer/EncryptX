@@ -13,6 +13,13 @@ export const metadata: Metadata = {
   keywords: "file encryption, AES-256, secure files, privacy, encryption tool",
 }
 
+/**
+ * Defines the root layout for the application, providing global structure, font, and navigation.
+ *
+ * Wraps all page content with consistent HTML, font styling, backend keep-alive functionality, and navigation bar.
+ *
+ * @param children - The page content to be rendered within the layout
+ */
 export default function RootLayout({
   children,
 }: {

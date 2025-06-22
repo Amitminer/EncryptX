@@ -5,6 +5,7 @@ use aes_gcm::{
 use thiserror::Error;
 use zeroize::ZeroizeOnDrop;
 use serde::{Serialize, Deserialize};
+use base64;
 use base64::engine::Engine;
 use argon2::{Argon2, password_hash::{PasswordHasher, SaltString}, Algorithm, Version, Params};
 use tokio::task;
@@ -37,10 +38,14 @@ pub struct SecureKey {
 }
 
 impl SecureKey {
+    /// Creates a new `SecureKey` instance containing the provided 32-byte key.
+    ///
+    /// The key will be securely zeroized from memory when the `SecureKey` is dropped.
     pub fn new(key: [u8; 32]) -> Self {
         Self { key }
     }
     
+    /// Returns a reference to the underlying 32-byte key as a byte slice.
     pub fn as_slice(&self) -> &[u8] {
         &self.key
     }
@@ -89,7 +94,16 @@ const ARGON2_PARALLELISM: u32 = 1;     // Single thread to avoid complexity
 const SALT_LENGTH: usize = 32;
 
 /// Derives encryption key from password using Argon2 in async context.
-/// Offloads CPU-intensive work to blocking thread pool to avoid blocking async runtime.
+/// Asynchronously derives a 32-byte encryption key from a password and salt using Argon2id.
+///
+/// Offloads the CPU-intensive Argon2 computation to a blocking thread pool to prevent blocking the async runtime. Returns an error if the salt length is invalid or if the key derivation fails.
+///
+/// # Parameters
+/// - `password`: The password to derive the key from.
+/// - `salt`: A 32-byte salt used for key derivation.
+///
+/// # Returns
+/// A 32-byte derived encryption key on success, or a `CryptoError` on failure.
 pub async fn derive_key_from_password_async(password: String, salt: Vec<u8>) -> Result<[u8; 32], CryptoError> {
     if salt.len() != SALT_LENGTH {
         return Err(CryptoError::KeyDerivationError("Invalid salt length".to_string()));
@@ -105,7 +119,16 @@ pub async fn derive_key_from_password_async(password: String, salt: Vec<u8>) -> 
 }
 
 /// Synchronous Argon2 key derivation using Argon2id variant.
-/// Argon2id combines data-dependent and data-independent memory access patterns.
+/// Derives a 32-byte encryption key from a password and salt using Argon2id.
+///
+/// Uses Argon2id with strong security parameters to generate a key suitable for AES-256 encryption. The salt must be exactly 32 bytes. Returns an error if key derivation fails or the salt is invalid.
+///
+/// # Parameters
+/// - `password`: The password to derive the key from.
+/// - `salt`: A 32-byte salt value.
+///
+/// # Returns
+/// A 32-byte derived key on success, or a `CryptoError` if key derivation fails.
 pub fn derive_key_from_password_argon2(password: &str, salt: &[u8]) -> Result<[u8; 32], CryptoError> {
     if salt.len() != SALT_LENGTH {
         return Err(CryptoError::KeyDerivationError("Invalid salt length".to_string()));
@@ -140,7 +163,18 @@ pub fn derive_key_from_password_argon2(password: &str, salt: &[u8]) -> Result<[u
 }
 
 /// Encrypts data with provided key using AES-256-GCM authenticated encryption.
-/// Returns complete file format: [header_len][header][nonce][ciphertext_with_tag]
+/// Encrypts data using AES-256-GCM with a provided 32-byte key and constructs a versioned file format.
+///
+/// The output format is: `[4-byte header length][header JSON][12-byte nonce][ciphertext + tag]`.
+/// The header includes the original filename, a base64-encoded copy of the key, format version, and encryption timestamp.
+///
+/// # Parameters
+/// - `data`: The plaintext data to encrypt.
+/// - `key`: A 32-byte encryption key.
+/// - `filename`: The original filename to embed in the header.
+///
+/// # Returns
+/// A vector containing the encrypted file in the specified format, or a `CryptoError` if encryption fails.
 pub fn encrypt_with_header(data: &[u8], key: &[u8], filename: &str) -> Result<Vec<u8>, CryptoError> {
     if key.len() != 32 {
         return Err(CryptoError::EncryptionError("Key must be exactly 32 bytes".to_string()));
@@ -188,7 +222,18 @@ pub fn encrypt_with_header(data: &[u8], key: &[u8], filename: &str) -> Result<Ve
 }
 
 /// Encrypts data with password-based key derivation using Argon2.
-/// Uses different file format marker (0xFF) to distinguish from key-based encryption.
+/// Asynchronously encrypts data using a password-derived key with Argon2id and AES-256-GCM.
+///
+/// The output format includes a 0xFF marker byte, a length-prefixed JSON header containing Argon2 parameters and metadata, a random nonce, and the ciphertext with authentication tag. The header embeds the salt and encryption parameters for future decryption.
+///
+/// # Parameters
+/// - `data`: The plaintext data to encrypt.
+/// - `password`: The password used for key derivation.
+/// - `filename`: The original file name to embed in the header.
+/// - `salt`: The salt for Argon2 key derivation.
+///
+/// # Returns
+/// A vector containing the encrypted file in the password-based format, or a `CryptoError` on failure.
 pub async fn encrypt_with_password_async(data: &[u8], password: String, filename: &str, salt: Vec<u8>) -> Result<Vec<u8>, CryptoError> {
     // Derive 256-bit key from password using Argon2
     let derived_key = derive_key_from_password_async(password, salt.clone()).await?;
@@ -235,7 +280,19 @@ pub async fn encrypt_with_password_async(data: &[u8], password: String, filename
 }
 
 /// Decrypts key-based encrypted files with authentication verification.
-/// Automatically detects and rejects password-based files.
+/// Decrypts data encrypted with key-based AES-256-GCM, using an optional provided key or an embedded key from the file header.
+///
+/// Automatically detects and rejects password-based encrypted files, returning an error if such a file is provided. Validates the file format, parses the header, extracts the nonce and ciphertext, and performs authenticated decryption. Returns the decrypted data and the original filename on success.
+///
+/// # Parameters
+/// - `encrypted_data`: The encrypted file data in the expected key-based format.
+/// - `key`: An optional 32-byte decryption key. If not provided, the function attempts to use an embedded key from the file header.
+///
+/// # Returns
+/// A tuple containing the decrypted data and the original filename.
+///
+/// # Errors
+/// Returns a `CryptoError` if the file format is invalid, the key is missing or incorrect, the file is password-encrypted, or authentication fails during decryption.
 pub fn decrypt_with_header(encrypted_data: &[u8], key: Option<&[u8]>) -> Result<(Vec<u8>, String), CryptoError> {
     if encrypted_data.len() < 4 {
         return Err(CryptoError::FormatError);
@@ -296,7 +353,12 @@ pub fn decrypt_with_header(encrypted_data: &[u8], key: Option<&[u8]>) -> Result<
 }
 
 /// Decrypts password-based encrypted files using Argon2 key derivation.
-/// Automatically detects key-based files and provides helpful error messages.
+/// Asynchronously decrypts data encrypted with a password-derived key using AES-256-GCM.
+///
+/// Automatically detects and rejects files not encrypted with a password, returning a helpful error if a key-based file is provided. Parses the password-based file header, derives the decryption key using Argon2id with parameters from the header, and decrypts the ciphertext, verifying authenticity. Returns the decrypted data and the original filename on success.
+///
+/// # Errors
+/// Returns a `CryptoError` if the file format is invalid, the decryption method is incorrect, key derivation fails, or authentication fails during decryption. PBKDF2-encrypted files are not supported in async mode.
 pub async fn decrypt_with_password_async(encrypted_data: &[u8], password: String) -> Result<(Vec<u8>, String), CryptoError> {
     if encrypted_data.is_empty() {
         return Err(CryptoError::FormatError);
