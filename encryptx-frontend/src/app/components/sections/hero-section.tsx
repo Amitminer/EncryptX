@@ -3,6 +3,11 @@ import { Lock, Upload, Download, Zap, Shield } from "lucide-react"
 import { Button } from "@/app/ui/button"
 import { SiGithub } from "react-icons/si"
 
+/**
+ * Renders a visually rich, full-screen hero section for the EncryptX web application.
+ *
+ * The section features animated background elements, a prominent lock icon, a gradient-text heading, descriptive subtitle, call-to-action buttons for file encryption and decryption, and informational labels. All content is styled responsively and uses layered visual effects for an engaging presentation.
+ */
 export function HeroSection() {
   return (
     <section className="relative min-h-screen flex items-center justify-center px-4 sm:px-6 overflow-hidden py-4 sm:py-20">

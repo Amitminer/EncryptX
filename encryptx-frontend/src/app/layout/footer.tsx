@@ -5,6 +5,11 @@ import { getCurrentYear, getVersion, GitHubUrl } from "@/app/utils"
 import { Heart } from "lucide-react"
 import { SiGithub } from "react-icons/si"
 
+/**
+ * Renders the application footer with server status, GitHub link, decorative elements, and version information.
+ *
+ * The footer displays a live server status indicator, a link to the project's GitHub repository, animated decorative dots, a "Made with ❤️ and Rust" message, and the current year with the app version.
+ */
 export function Footer() {
   const [status, setStatus] = useState<"up" | "down" | "unknown">("unknown")
 

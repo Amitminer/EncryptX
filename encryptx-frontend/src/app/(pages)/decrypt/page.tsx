@@ -5,6 +5,11 @@ export const metadata: Metadata = {
   title: "EncryptX | Decrypt",
 }
 
+/**
+ * Renders the Decrypt page, providing a user interface for securely decrypting files.
+ *
+ * Displays a heading, a brief description, the decryption form, a link to the encryption page, and a privacy note about file handling.
+ */
 export default function DecryptPage() {
   return (
     <div className="container mx-auto px-4">

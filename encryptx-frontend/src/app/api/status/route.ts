@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server"
 
+/**
+ * Handles a GET request to retrieve the status of a Better Uptime monitor.
+ *
+ * Returns a JSON response with the monitor's status ("up" or "down"). If required environment variables are missing or the external API call fails, responds with status "unknown" and HTTP 500.
+ */
 export async function GET() {
   const monitorId = process.env.BETTER_MONITOR_ID
   const apiKey = process.env.BETTER_API_KEY

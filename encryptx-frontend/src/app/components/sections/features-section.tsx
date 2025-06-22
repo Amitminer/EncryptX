@@ -1,5 +1,10 @@
 import { Shield, Zap, Eye } from "lucide-react"
 
+/**
+ * Renders a visually styled section highlighting three core features of the EncryptX product.
+ *
+ * Displays a responsive grid of feature cards with icons, titles, descriptions, and accent-colored statistics, along with animated background effects and decorative elements.
+ */
 export function FeaturesSection() {
   const features = [
     {

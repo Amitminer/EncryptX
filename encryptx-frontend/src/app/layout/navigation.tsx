@@ -5,6 +5,11 @@ import { usePathname } from "next/navigation"
 import { HomeIcon, Lock, Menu, X, Zap } from "lucide-react"
 import { useState, ComponentType, SVGProps } from "react"
 
+/**
+ * Renders a responsive, fixed navigation bar with cyberpunk styling for the application.
+ *
+ * Displays a logo and navigation links for Home, Encrypt, and Decrypt routes, highlighting the active route and adapting layout for desktop and mobile screens.
+ */
 export function Navigation() {
   const pathname = usePathname()
 
@@ -86,6 +91,14 @@ type MobileNavProps = {
   pathname: string;
 };
 
+/**
+ * Renders a mobile navigation menu with a toggle button and animated dropdown.
+ *
+ * Displays navigation links with active route highlighting and a pulsing indicator. The menu overlays the page with a backdrop when open and closes when a link or the backdrop is clicked.
+ *
+ * @param navItems - Array of navigation items to display in the menu
+ * @param pathname - The current route pathname used to highlight the active link
+ */
 function MobileNav({ navItems, pathname }: MobileNavProps) {
   const [open, setOpen] = useState(false)
   
