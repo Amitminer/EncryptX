@@ -3,20 +3,17 @@ FROM rust:latest
 
 WORKDIR /app
 
-# Install build dependencies
 RUN apt-get update && apt-get install -y pkg-config libssl-dev
 
-# Copy only Cargo.toml first to cache dependencies
-COPY Cargo.toml ./
-RUN mkdir src && echo 'fn main() {}' > src/main.rs
-RUN cargo build --release
-RUN rm -rf src
-
-# Now copy the full source
+# Copy project files
 COPY . .
 
-# Build actual app
+# Build in release mode
 RUN cargo build --release
 
-# Run the app
+# Expose the port Railway expects
+ENV PORT=8080
+EXPOSE 8080
+
+# Run the backend
 CMD ["./target/release/encryptx-backend"]
