@@ -3,6 +3,11 @@ import { Button } from "@/app/ui/button"
 import { ArrowRight, Zap, Shield, Star, Lock } from "lucide-react"
 import { SiGithub } from "react-icons/si"
 
+/**
+ * Renders a visually rich call-to-action section promoting EncryptX, featuring animated backgrounds, feature highlights, descriptive text, and interactive buttons for user engagement.
+ *
+ * The section includes feature icons, a main heading, descriptive paragraph, primary and secondary action buttons, status indicators, and key product stats, all styled with responsive layouts and animated effects.
+ */
 export function CTASection() {
   return (
     <section className="py-8 sm:py-12 md:py-16 lg:py-20 px-4 sm:px-6 md:px-8 relative overflow-hidden">
