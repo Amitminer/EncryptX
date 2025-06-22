@@ -5,7 +5,6 @@ use aes_gcm::{
 use thiserror::Error;
 use zeroize::ZeroizeOnDrop;
 use serde::{Serialize, Deserialize};
-use base64;
 use base64::engine::Engine;
 use argon2::{Argon2, password_hash::{PasswordHasher, SaltString}, Algorithm, Version, Params};
 use tokio::task;
