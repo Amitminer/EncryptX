@@ -6,8 +6,8 @@ WORKDIR /app
 # Install build dependencies
 RUN apt-get update && apt-get install -y pkg-config libssl-dev
 
-# Copy only Cargo files first to cache dependencies
-COPY Cargo.toml Cargo.lock ./
+# Copy only Cargo.toml first to cache dependencies
+COPY Cargo.toml ./
 RUN mkdir src && echo 'fn main() {}' > src/main.rs
 RUN cargo build --release
 RUN rm -rf src
