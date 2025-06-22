@@ -16,7 +16,7 @@ EncryptX provides REST API endpoints for secure file encryption using AES-256-GC
 ## File Formats
 
 ### Key-Based Encryption Format (.xd files)
-```
+```text
 [header length (4 bytes, big-endian)]
 [header JSON (variable length)]
 [nonce (12 bytes)]
@@ -24,7 +24,7 @@ EncryptX provides REST API endpoints for secure file encryption using AES-256-GC
 ```
 
 ### Password-Based Encryption Format (.xd files)
-```
+```text
 [format marker (1 byte, 0xFF)]
 [header length (4 bytes, big-endian)]
 [header JSON (variable length)]
