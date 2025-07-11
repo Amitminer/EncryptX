@@ -8,6 +8,7 @@ use rand::RngCore;
 use std::fs;
 use std::io;
 use std::path::Path;
+use zstd::stream::{encode_all, decode_all};
 
 /// Command-line interface for EncryptX Backend.
 ///
@@ -244,7 +245,11 @@ pub async fn run_cli() -> Result<bool, CliError> {
 
             println!("🔐 Encrypting file '{file}'...");
 
-            // Perform encryption
+            // Compress before encryption
+            let compressed = encode_all(&data[..], 3).map_err(|e| CliError::Crypto(format!("Compression error: {e}")))?;
+            let mut compressed_with_flag = Vec::with_capacity(1 + compressed.len());
+            compressed_with_flag.push(0x01);
+            compressed_with_flag.extend_from_slice(&compressed);
             let encrypted = if let Some(password) = password {
                 // Password-based encryption (Argon2id)
                 let mut salt = [0u8; 32];
@@ -252,7 +257,7 @@ pub async fn run_cli() -> Result<bool, CliError> {
                     .try_fill_bytes(&mut salt)
                     .map_err(|e| CliError::Crypto(format!("Failed to generate salt: {e}")))?;
 
-                crypto::encrypt_with_password_async(&data, password, orig_name, salt.to_vec())
+                crypto::encrypt_with_password_async(&compressed_with_flag, password, orig_name, salt.to_vec())
                     .await
                     .map_err(|e| CliError::Crypto(format!("Password encryption failed: {e}")))?
             } else {
@@ -276,7 +281,7 @@ pub async fn run_cli() -> Result<bool, CliError> {
                     k.to_vec()
                 };
 
-                crypto::encrypt_with_header(&data, &final_key, orig_name)
+                crypto::encrypt_with_header(&compressed_with_flag, &final_key, orig_name)
                     .map_err(|e| CliError::Crypto(format!("Key encryption failed: {e}")))?
             };
 
@@ -357,7 +362,13 @@ pub async fn run_cli() -> Result<bool, CliError> {
             check_output_file(&output_file, force)?;
 
             // Write decrypted file
-            fs::write(&output_file, &decrypted).map_err(|e| {
+            // Decompress after decryption if needed
+            let output_bytes = if decrypted.first() == Some(&0x01) {
+                decode_all(&decrypted[1..]).map_err(|e| CliError::Crypto(format!("Decompression error: {e}")))?
+            } else {
+                decrypted
+            };
+            fs::write(&output_file, &output_bytes).map_err(|e| {
                 CliError::Io(io::Error::new(
                     e.kind(),
                     format!("Failed to write decrypted file '{output_file}': {e}"),
@@ -365,7 +376,7 @@ pub async fn run_cli() -> Result<bool, CliError> {
             })?;
 
             println!("✅ Decrypted file written to '{output_file}'");
-            println!("📊 Decrypted size: {} bytes", decrypted.len());
+            println!("📊 Decrypted size: {} bytes", output_bytes.len());
 
             Ok(true)
         }
