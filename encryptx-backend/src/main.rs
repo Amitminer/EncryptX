@@ -93,6 +93,7 @@ fn generate_secure_key() -> [u8; 32] {
 /// An encrypted file as a binary stream with appropriate headers, or an error response if encryption fails or headers are invalid.
 async fn encrypt_file(req: HttpRequest, body: Bytes) -> impl Responder {
     // Compress the file bytes before encryption
+    let original_size = body.len();
     let compressed = match encode_all(&body[..], 3) {
         Ok(c) => c,
         Err(e) => {
@@ -103,6 +104,9 @@ async fn encrypt_file(req: HttpRequest, body: Bytes) -> impl Responder {
     let mut compressed_with_flag = Vec::with_capacity(1 + compressed.len());
     compressed_with_flag.push(0x01);
     compressed_with_flag.extend_from_slice(&compressed);
+    let compressed_size = compressed_with_flag.len();
+    println!("Original size: {original_size} bytes");
+    println!("Compressed size: {compressed_size} bytes");
 
     // Check for password-based encryption request
     if let Some(password_header) = req.headers().get("x-password") {
