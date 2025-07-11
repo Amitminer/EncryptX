@@ -16,6 +16,7 @@ Built for developers and privacy-conscious users alike, EncryptX supports both p
 - 🧠 **Argon2id Password Hashing**: Secure key derivation for passwords.
 - 🧪 **Tamper Detection**: Authenticated encryption blocks modification.
 - 📂 **Any File Type**: Works for docs, media, videos, archives — anything.
+- 📦 **Automatic Compression**: Files are compressed with zstd before encryption for efficient storage and transfer.
 - 🧱 **Large File Support**: Optimized for files up to 1GB.
 - 🖥️ **Modern UI**: Built with Next.js + Tailwind, featuring drag & drop and smooth feedback.
 - 🧼 **Memory-Safe Backend**: Rust ensures sensitive data is securely handled.
@@ -97,6 +98,8 @@ BETTER_MONITOR_ID=your_monitor_id
 
 Encrypts a file (streamed in the request body).
 
+**Note:** All files are automatically compressed with zstd before encryption. This improves storage efficiency and transfer speed. Decryption will automatically decompress the file to its original form.
+
 **Headers:**
 
 * **Password-based**:
@@ -113,9 +116,41 @@ Encrypts a file (streamed in the request body).
 
 Decrypts a `.xd` encrypted file.
 
+**Note:** Decrypted files are automatically decompressed if they were compressed during encryption.
+
 **Headers:**
 
 * `x-password` **or** `x-enc-key` — whichever was used during encryption.
+
+---
+
+## 🦀 Public Rust API (for Developers)
+
+You can use EncryptX as a library in your own Rust projects!
+
+### Example: Encrypt & Decrypt Any File
+
+```rust
+use encryptx_backend::api;
+
+#[tokio::main]
+async fn main() {
+    let file_bytes = std::fs::read("example.txt").unwrap();
+    let password = "mysecret";
+    // Encrypt
+    let encrypted = api::encrypt_file_bytes(&file_bytes, Some(password), None, "example.txt").await.unwrap();
+    // Decrypt
+    let (decrypted, filename) = api::decrypt_file_bytes(&encrypted, Some(password), None).await.unwrap();
+    assert_eq!(decrypted, file_bytes);
+    println!("Decrypted filename: {}", filename);
+}
+```
+
+- Supports both password and key-based encryption (just pass `Some(key)` instead of password).
+- Handles compression automatically.
+- Returns the original filename on decrypt.
+
+**This is the recommended way to integrate EncryptX into your own Rust apps, services, or tests!**
 
 ---
 
@@ -124,6 +159,7 @@ Decrypts a `.xd` encrypted file.
 | Layer      | Tech                                 |
 | ---------- | ------------------------------------ |
 | Backend    | Rust, Actix Web, Serde, Zeroize      |
+| Compression | zstd (automatic, lossless)              |
 | Frontend   | Next.js, React, TypeScript, Tailwind |
 | Crypto     | AES-256-GCM, Argon2id, SHA-256       |
 | Infra      | Railway (Backend), Vercel (Frontend) |
