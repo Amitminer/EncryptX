@@ -70,7 +70,7 @@ You can also run EncryptX via Docker using `docker-compose.yml`.
 ### ▶️ Run Everything with Docker
 
 ```bash
-git clone https://github.com/yourusername/encryptx.git
+git clone https://github.com/Amitminer/EncryptX.git
 cd encryptx
 docker compose up --build
 ```
