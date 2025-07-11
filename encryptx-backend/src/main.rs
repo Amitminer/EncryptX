@@ -145,8 +145,6 @@ async fn encrypt_file(req: HttpRequest, body: Bytes) -> impl Responder {
         let generate_and_log_key = || {
             let random_key = generate_secure_key();
             let key_b64_str = general_purpose::STANDARD.encode(random_key);
-            println!("Generated random encryption key: {}", key_b64_str);
-            let key_b64_str = general_purpose::STANDARD.encode(random_key);
             println!("Generated random encryption key: {key_b64_str}");
             random_key
         };
@@ -386,4 +384,3 @@ async fn main() -> std::io::Result<()> {
     .run()
     .await
 }
-

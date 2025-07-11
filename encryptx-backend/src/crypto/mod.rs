@@ -6,9 +6,6 @@ use argon2::{
     Algorithm, Argon2, Params, Version,
     password_hash::{PasswordHasher, SaltString},
 };
-use thiserror::Error;
-use zeroize::ZeroizeOnDrop;
-use serde::{Serialize, Deserialize};
 use base64::engine::Engine;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -49,7 +46,7 @@ impl SecureKey {
     pub fn new(key: [u8; 32]) -> Self {
         Self { key }
     }
-    
+
     /// Returns a reference to the underlying 32-byte key as a byte slice.
     pub fn as_slice(&self) -> &[u8] {
         &self.key
@@ -109,7 +106,10 @@ const SALT_LENGTH: usize = 32;
 ///
 /// # Returns
 /// A 32-byte derived encryption key on success, or a `CryptoError` on failure.
-pub async fn derive_key_from_password_async(password: String, salt: Vec<u8>) -> Result<[u8; 32], CryptoError> {
+pub async fn derive_key_from_password_async(
+    password: String,
+    salt: Vec<u8>,
+) -> Result<[u8; 32], CryptoError> {
     if salt.len() != SALT_LENGTH {
         return Err(CryptoError::KeyDerivationError(
             "Invalid salt length".to_string(),
@@ -135,7 +135,10 @@ pub async fn derive_key_from_password_async(password: String, salt: Vec<u8>) -> 
 ///
 /// # Returns
 /// A 32-byte derived key on success, or a `CryptoError` if key derivation fails.
-pub fn derive_key_from_password_argon2(password: &str, salt: &[u8]) -> Result<[u8; 32], CryptoError> {
+pub fn derive_key_from_password_argon2(
+    password: &str,
+    salt: &[u8],
+) -> Result<[u8; 32], CryptoError> {
     if salt.len() != SALT_LENGTH {
         return Err(CryptoError::KeyDerivationError(
             "Invalid salt length".to_string(),
@@ -187,7 +190,11 @@ pub fn derive_key_from_password_argon2(password: &str, salt: &[u8]) -> Result<[u
 ///
 /// # Returns
 /// A vector containing the encrypted file in the specified format, or a `CryptoError` if encryption fails.
-pub fn encrypt_with_header(data: &[u8], key: &[u8], filename: &str) -> Result<Vec<u8>, CryptoError> {
+pub fn encrypt_with_header(
+    data: &[u8],
+    key: &[u8],
+    filename: &str,
+) -> Result<Vec<u8>, CryptoError> {
     if key.len() != 32 {
         return Err(CryptoError::EncryptionError(
             "Key must be exactly 32 bytes".to_string(),
@@ -249,7 +256,12 @@ pub fn encrypt_with_header(data: &[u8], key: &[u8], filename: &str) -> Result<Ve
 ///
 /// # Returns
 /// A vector containing the encrypted file in the password-based format, or a `CryptoError` on failure.
-pub async fn encrypt_with_password_async(data: &[u8], password: String, filename: &str, salt: Vec<u8>) -> Result<Vec<u8>, CryptoError> {
+pub async fn encrypt_with_password_async(
+    data: &[u8],
+    password: String,
+    filename: &str,
+    salt: Vec<u8>,
+) -> Result<Vec<u8>, CryptoError> {
     // Derive 256-bit key from password using Argon2
     let derived_key = derive_key_from_password_async(password, salt.clone()).await?;
 
@@ -310,7 +322,10 @@ pub async fn encrypt_with_password_async(data: &[u8], password: String, filename
 ///
 /// # Errors
 /// Returns a `CryptoError` if the file format is invalid, the key is missing or incorrect, the file is password-encrypted, or authentication fails during decryption.
-pub fn decrypt_with_header(encrypted_data: &[u8], key: Option<&[u8]>) -> Result<(Vec<u8>, String), CryptoError> {
+pub fn decrypt_with_header(
+    encrypted_data: &[u8],
+    key: Option<&[u8]>,
+) -> Result<(Vec<u8>, String), CryptoError> {
     if encrypted_data.len() < 4 {
         return Err(CryptoError::FormatError);
     }
@@ -388,7 +403,10 @@ pub fn decrypt_with_header(encrypted_data: &[u8], key: Option<&[u8]>) -> Result<
 ///
 /// # Errors
 /// Returns a `CryptoError` if the file format is invalid, the decryption method is incorrect, key derivation fails, or authentication fails during decryption. PBKDF2-encrypted files are not supported in async mode.
-pub async fn decrypt_with_password_async(encrypted_data: &[u8], password: String) -> Result<(Vec<u8>, String), CryptoError> {
+pub async fn decrypt_with_password_async(
+    encrypted_data: &[u8],
+    password: String,
+) -> Result<(Vec<u8>, String), CryptoError> {
     if encrypted_data.is_empty() {
         return Err(CryptoError::FormatError);
     }
