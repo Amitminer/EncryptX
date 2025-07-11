@@ -188,7 +188,11 @@ const DecryptButton = ({ isDisabled, isProcessing, fileCount, hasPassword, onCli
   </div>
 )
 
-// Main component
+/**
+ * Renders a user interface for decrypting `.xd` files with optional password protection.
+ *
+ * Allows users to select or drag-and-drop multiple files, enter a password if needed, and initiate decryption. Displays the status of each file during processing and automatically downloads decrypted files upon success. Handles error reporting and disables UI elements appropriately during decryption.
+ */
 export function DecryptForm() {
   const [files, setFiles] = useState<File[]>([])
   const [password, setPassword] = useState("")

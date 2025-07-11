@@ -1,6 +1,11 @@
 import Link from "next/link"
 import { Upload, Shield, Download, ArrowRight, CheckCircle } from "lucide-react"
 
+/**
+ * Renders a responsive section that visually explains the four-step file encryption and decryption process.
+ *
+ * Displays each step with an icon, title, description, and detail, using animated gradients and color-coded themes for clarity. Adapts layout for desktop and mobile screens, and includes interactive visual effects for enhanced user engagement.
+ */
 export function HowItWorksSection() {
   const steps = [
     {

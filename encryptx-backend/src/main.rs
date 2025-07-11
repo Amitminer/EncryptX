@@ -65,7 +65,13 @@ enum Commands {
 }
 
 /// Generates a cryptographically secure 256-bit encryption key.
-/// Uses the system's secure random number generator.
+/// Generates a cryptographically secure 256-bit (32-byte) random encryption key using the system's secure random number generator.
+///
+/// # Returns
+/// A 32-byte array containing the generated encryption key.
+///
+/// # Panics
+/// Panics if the system random number generator fails.
 fn generate_secure_key() -> [u8; 32] {
     let mut key = [0u8; 32];
     OsRng
@@ -77,6 +83,14 @@ fn generate_secure_key() -> [u8; 32] {
 /// File encryption endpoint supporting both key-based and password-based modes.
 /// Mode is determined by presence of x-password header.
 #[post("/encrypt")]
+/// Handles file encryption requests for the `/encrypt` endpoint.
+///
+/// Supports both password-based and key-based encryption modes, determined by the presence of the `x-password` header.
+/// - **Password-based encryption:** Requires an `x-password` header and derives a key using Argon2id with a random 32-byte salt. The original filename can be specified via the `x-orig-filename` header.
+/// - **Key-based encryption:** Uses a base64-encoded 256-bit key from the `x-enc-key` header, or generates a secure random key if not provided. The original filename can be specified via the `x-orig-filename` header.
+///
+/// # Returns
+/// An encrypted file as a binary stream with appropriate headers, or an error response if encryption fails or headers are invalid.
 async fn encrypt_file(req: HttpRequest, body: Bytes) -> impl Responder {
     // Compress the file bytes before encryption
     let compressed = match encode_all(&body[..], 3) {
@@ -130,6 +144,8 @@ async fn encrypt_file(req: HttpRequest, body: Bytes) -> impl Responder {
         // Key-based encryption mode
         let generate_and_log_key = || {
             let random_key = generate_secure_key();
+            let key_b64_str = general_purpose::STANDARD.encode(random_key);
+            println!("Generated random encryption key: {}", key_b64_str);
             let key_b64_str = general_purpose::STANDARD.encode(random_key);
             println!("Generated random encryption key: {key_b64_str}");
             random_key
@@ -192,6 +208,9 @@ async fn encrypt_file(req: HttpRequest, body: Bytes) -> impl Responder {
 /// File decryption endpoint with automatic format detection.
 /// Detects password vs key-based encryption and routes accordingly.
 #[post("/decrypt")]
+/// Handles file decryption requests for the `/decrypt` endpoint.
+///
+/// Supports both password-based and key-based decryption modes, determined by the presence of the `x-password` or `x-enc-key` headers. Returns the decrypted file as a binary stream with the original filename, or an appropriate HTTP error response if decryption fails.
 async fn decrypt_file(req: HttpRequest, body: Bytes) -> impl Responder {
     // Check for password-based decryption request
     if let Some(password_header) = req.headers().get("x-password") {
@@ -308,12 +327,21 @@ async fn decrypt_file(req: HttpRequest, body: Bytes) -> impl Responder {
 /// Health check endpoint for monitoring and status verification.
 /// Returns a simple message indicating the API is running.
 #[get("/health")]
+/// Returns a JSON response indicating server health status and cryptographic configuration.
+///
+/// The response includes the server status, the cryptographic algorithms in use, and whether asynchronous processing is enabled.
 async fn health_check() -> impl Responder {
     HttpResponse::Ok().body("EncryptX backend server api is running")
 }
 
 /// Main server entry point with CORS configuration and request logging.
 #[actix_web::main]
+/// Starts the EncryptX backend server with Actix Web, configuring CORS, logging, and REST endpoints for file encryption, decryption, and health checks.
+///
+/// Loads environment variables, sets up allowed CORS origins, and binds the server to all interfaces on port 8080. Supports large file uploads and logs all incoming requests.
+///
+/// # Returns
+/// An I/O result indicating the success or failure of the server startup.
 async fn main() -> std::io::Result<()> {
     #[cfg(feature = "dhat-heap")]
     let _profiler = dhat::Profiler::new_heap();
@@ -358,3 +386,4 @@ async fn main() -> std::io::Result<()> {
     .run()
     .await
 }
+
