@@ -62,7 +62,7 @@ jobs:
           <?xml version="1.0" encoding="UTF-8"?>
           <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
             <Product Id="*" Name="EncryptX CLI" Language="1033" Version="1.6.0" Manufacturer="AmitxD" UpgradeCode="{12345678-1234-1234-1234-123456789012}">
-              <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
+              <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" Platform="x64" />
 
               <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
               <MediaTemplate EmbedCab="yes" />
@@ -85,14 +85,14 @@ jobs:
 
             <Fragment>
               <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
-                <Component Id="MainExecutable" Guid="{12345678-1234-1234-1234-123456789014}">
+                <Component Id="MainExecutable" Guid="{12345678-1234-1234-1234-123456789014}" Win64="yes">
                   <File Id="EncryptXExe" Source="encryptx-windows\encryptx.exe" KeyPath="yes" />
 
                   <!-- Add to system PATH -->
                   <Environment Id="PATH" Name="PATH" Value="[INSTALLFOLDER]" Permanent="no" Part="last" Action="set" System="yes" />
                 </Component>
 
-                <Component Id="Documentation" Guid="{12345678-1234-1234-1234-123456789015}">
+                <Component Id="Documentation" Guid="{12345678-1234-1234-1234-123456789015}" Win64="yes">
                   <File Id="ReadmeFile" Source="encryptx-windows\README.md" />
                   <File Id="LicenseFile" Source="encryptx-windows\LICENSE" />
                   <File Id="VersionFile" Source="encryptx-windows\VERSION.txt" />
