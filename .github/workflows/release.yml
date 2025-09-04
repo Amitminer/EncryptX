@@ -55,7 +55,7 @@ jobs:
       - name: Create MSI installer with WiX Toolset
         run: |
           # Install WiX Toolset v3 (available on GitHub runners)
-          choco install wixtoolset -y
+          choco install wixtoolset -y --force
 
           # Create WiX source file
           $wxsContent = @'
@@ -104,9 +104,37 @@ jobs:
 
           $wxsContent | Out-File -FilePath "encryptx.wxs" -Encoding UTF8
 
-          # Build MSI
-          & "C:\Program Files (x86)\WiX Toolset v3.11\bin\candle.exe" encryptx.wxs
-          & "C:\Program Files (x86)\WiX Toolset v3.11\bin\light.exe" -ext WixUIExtension encryptx.wixobj -o encryptx-windows\encryptx-installer.msi
+          # Find WiX installation path dynamically
+          $wixPath = Get-ChildItem "C:\Program Files (x86)" -Directory -Name "WiX Toolset*" | Sort-Object -Descending | Select-Object -First 1
+          $candlePath = "C:\Program Files (x86)\$wixPath\bin\candle.exe"
+          $lightPath = "C:\Program Files (x86)\$wixPath\bin\light.exe"
+          
+          Write-Host "Using WiX Toolset at: $wixPath"
+          Write-Host "Candle path: $candlePath"
+          Write-Host "Light path: $lightPath"
+
+          # Verify WiX tools exist
+          if (-not (Test-Path $candlePath)) {
+            throw "Candle.exe not found at $candlePath"
+          }
+          if (-not (Test-Path $lightPath)) {
+            throw "Light.exe not found at $lightPath"
+          }
+
+          # Build MSI using dynamic paths
+          Write-Host "Building WiX object file..."
+          & $candlePath encryptx.wxs
+          if ($LASTEXITCODE -ne 0) {
+            throw "Candle.exe failed with exit code $LASTEXITCODE"
+          }
+
+          Write-Host "Building MSI installer..."
+          & $lightPath -ext WixUIExtension encryptx.wixobj -o encryptx-windows\encryptx-installer.msi
+          if ($LASTEXITCODE -ne 0) {
+            throw "Light.exe failed with exit code $LASTEXITCODE"
+          }
+
+          Write-Host "MSI installer created successfully!"
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
