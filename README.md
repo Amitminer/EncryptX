@@ -105,13 +105,35 @@ npm run test:frontend    # Test frontend only
 
 ### Docker Deployment
 
+#### 🐳 **Quick Start with Docker**
 ```bash
-# Build and run with Docker Compose
+# Development (default settings)
 docker-compose up --build
 
-# Or run individually
+# Production with custom environment
+RUST_LOG=warn \
+ALLOWED_ORIGIN=https://yourdomain.com \
+NEXT_PUBLIC_BACKEND_URL=https://api.yourdomain.com \
+NODE_ENV=production \
+docker-compose up --build -d
+
+# Common commands
+docker-compose up -d --build    # Run in background
+docker-compose logs -f          # View logs
+docker-compose down             # Stop services
+```
+
+#### 🔧 **Individual Container Builds**
+```bash
+# Build backend (Alpine-based, ~50MB)
 docker build -t encryptx-backend ./encryptx-backend
+
+# Build frontend (Alpine-based with pnpm, ~150MB)
 docker build -t encryptx-frontend ./encryptx-frontend
+
+# Run individually
+docker run -p 8080:8080 encryptx-backend
+docker run -p 3000:3000 encryptx-frontend
 ```
 
 ---
@@ -150,6 +172,22 @@ docker build -t encryptx-frontend ./encryptx-frontend
    - Download your original file
 
 ### Command Line Interface
+
+#### 📦 **Pre-built Binaries** (Recommended)
+
+Download the latest release for your platform:
+- **Windows**: [Download MSI Installer](https://github.com/Amitminer/EncryptX/releases/latest)
+- **Linux x64**: [Download Tarball](https://github.com/Amitminer/EncryptX/releases/latest)
+- **macOS ARM64**: [Download Tarball](https://github.com/Amitminer/EncryptX/releases/latest)
+
+```bash
+# After installation, use the CLI:
+encryptx encrypt --file secret.txt --password mysecretpassword
+encryptx decrypt --file secret.xd --password mysecretpassword
+encryptx generate-key
+```
+
+#### 🛠️ **Build from Source**
 
 ```bash
 # Encrypt with password

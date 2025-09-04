@@ -1,0 +1,224 @@
+name: Test Suite
+
+on:
+  push:
+    branches: [main, dev, beta]
+  pull_request:
+    branches: [main, dev, beta]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test-backend:
+    name: 🦀 Test Rust Backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: encryptx-backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libssl-dev
+
+      - name: Cache cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            encryptx-backend/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Run Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Run tests
+        run: cargo test --verbose
+
+      - name: Test CLI functionality
+        run: |
+          # Build the CLI
+          cargo build --release
+          
+          # Test basic functionality
+          echo "Hello, World!" > test.txt
+          
+          # Test encryption with password
+          ./target/release/encryptx-backend encrypt --file test.txt --password testpass123
+          
+          # Test decryption
+          ./target/release/encryptx-backend decrypt --file test.xd --password testpass123
+          
+          # Verify content
+          if [ "$(cat test.txt)" = "Hello, World!" ]; then
+            echo "✅ CLI test passed"
+          else
+            echo "❌ CLI test failed"
+            exit 1
+          fi
+          
+          # Cleanup
+          rm -f test.txt test.xd
+
+  test-frontend:
+    name: ⚡ Test Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: encryptx-frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: encryptx-frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Test build output
+        run: |
+          if [ -d ".next" ]; then
+            echo "✅ Frontend build successful"
+          else
+            echo "❌ Frontend build failed"
+            exit 1
+          fi
+
+  integration-test:
+    name: 🔗 Integration Test
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-frontend]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libssl-dev
+
+      - name: Install root dependencies
+        run: npm install
+
+      - name: Install frontend dependencies
+        run: cd encryptx-frontend && npm install
+
+      - name: Build backend
+        run: cd encryptx-backend && cargo build --release
+
+      - name: Start backend in background
+        run: |
+          cd encryptx-backend
+          RUST_LOG=info ./target/release/encryptx-backend &
+          echo $! > backend.pid
+          
+          # Wait for backend to start
+          sleep 5
+          
+          # Test health endpoint
+          curl -f http://localhost:8080/health || exit 1
+          echo "✅ Backend health check passed"
+
+      - name: Build and test frontend
+        run: |
+          cd encryptx-frontend
+          NEXT_PUBLIC_BACKEND_URL=http://localhost:8080 npm run build
+          
+          # Start frontend in background
+          npm start &
+          echo $! > frontend.pid
+          
+          # Wait for frontend to start
+          sleep 10
+          
+          # Test frontend health
+          curl -f http://localhost:3000/api/health || exit 1
+          echo "✅ Frontend health check passed"
+
+      - name: Test API integration
+        run: |
+          # Create test file
+          echo "Integration test data" > integration-test.txt
+          
+          # Test encryption endpoint
+          curl -X POST \
+            -H "Content-Type: application/octet-stream" \
+            -H "x-password: integration-test-password" \
+            -H "x-orig-filename: integration-test.txt" \
+            --data-binary @integration-test.txt \
+            -o integration-test.xd \
+            http://localhost:8080/encrypt
+          
+          if [ -f "integration-test.xd" ] && [ -s "integration-test.xd" ]; then
+            echo "✅ Encryption API test passed"
+          else
+            echo "❌ Encryption API test failed"
+            exit 1
+          fi
+          
+          # Test decryption endpoint
+          curl -X POST \
+            -H "Content-Type: application/octet-stream" \
+            -H "x-password: integration-test-password" \
+            --data-binary @integration-test.xd \
+            -o integration-test-decrypted.txt \
+            http://localhost:8080/decrypt
+          
+          # Verify decrypted content
+          if [ "$(cat integration-test-decrypted.txt)" = "Integration test data" ]; then
+            echo "✅ Decryption API test passed"
+          else
+            echo "❌ Decryption API test failed"
+            exit 1
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: |
+          # Kill background processes
+          if [ -f encryptx-backend/backend.pid ]; then
+            kill $(cat encryptx-backend/backend.pid) || true
+          fi
+          if [ -f encryptx-frontend/frontend.pid ]; then
+            kill $(cat encryptx-frontend/frontend.pid) || true
+          fi
+          
+          # Cleanup test files
+          rm -f integration-test.txt integration-test.xd integration-test-decrypted.txt
