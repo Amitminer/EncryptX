@@ -319,15 +319,27 @@ jobs:
 
       - name: Prepare release assets
         run: |
+          # Debug: List all downloaded artifacts
+          echo "=== Downloaded artifacts structure ==="
+          find . -name "*.tar.gz" -o -name "*.msi" | head -20
+          echo "=== Directory structure ==="
+          ls -la
+          echo "=== encryptx-linux contents ==="
+          ls -la encryptx-linux/ || echo "encryptx-linux directory not found"
+          echo "=== encryptx-macos contents ==="
+          ls -la encryptx-macos/ || echo "encryptx-macos directory not found"
+          echo "=== encryptx-windows contents ==="
+          ls -la encryptx-windows/ || echo "encryptx-windows directory not found"
+
           # Create release directory
           mkdir release-assets
 
           # Copy Windows MSI installer
           cp encryptx-windows/encryptx-installer.msi release-assets/encryptx-windows-x64-installer.msi
 
-          # Copy tarballs
-          cp encryptx-linux-x64.tar.gz release-assets/
-          cp encryptx-macos-arm64.tar.gz release-assets/
+          # Copy tarballs (they should be inside the artifact directories)
+          cp encryptx-linux/encryptx-linux-x64.tar.gz release-assets/
+          cp encryptx-macos/encryptx-macos-arm64.tar.gz release-assets/
 
           # Create checksums
           cd release-assets
