@@ -12,6 +12,11 @@ on:
         default: true
         type: boolean
 
+permissions:
+  contents: write
+  packages: write
+  actions: read
+
 env:
   CARGO_TERM_COLOR: always
 
