@@ -54,7 +54,16 @@ EncryptX provides military-grade AES-256-GCM encryption for any file type, featu
 
 ### Quick Start
 
-#### 🚀 **One-Command Setup** (Recommended)
+#### 🐳 **Docker Setup** (Recommended for Quick Testing)
+
+```bash
+# Clone and start with Docker (fastest way)
+git clone https://github.com/Amitminer/EncryptX.git
+cd EncryptX
+docker compose up --build
+```
+
+#### 🚀 **Development Setup** (Recommended for Development)
 
 ```bash
 # Clone the repository
