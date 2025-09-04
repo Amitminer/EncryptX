@@ -368,15 +368,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           name: "EncryptX CLI v${{ github.ref_name }}"
           tag: ${{ github.ref_name }}
-          prerelease: ${{ 
-            github.event_name == 'push' || 
-            github.event.inputs.release_type == 'prerelease' || 
-            github.event.inputs.prerelease == true || 
-            contains(github.ref_name, 'beta') || 
-            contains(github.ref_name, 'alpha') || 
-            contains(github.ref_name, 'rc') || 
-            contains(github.ref_name, 'dev') 
-          }}
+          prerelease: ${{ github.event_name == 'push' || github.event.inputs.release_type == 'prerelease' || github.event.inputs.prerelease == true || contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'rc') || contains(github.ref_name, 'dev') }}
           body: |
             # EncryptX CLI ${{ github.ref_name }}
 
