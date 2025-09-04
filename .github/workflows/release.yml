@@ -7,10 +7,18 @@ on:
   workflow_dispatch:
     inputs:
       prerelease:
-        description: "Create as prerelease"
+        description: "Create as prerelease (default: true)"
         required: false
         default: true
         type: boolean
+      release_type:
+        description: "Release type"
+        required: false
+        default: "prerelease"
+        type: choice
+        options:
+          - prerelease
+          - release
 
 permissions:
   contents: write
@@ -22,7 +30,7 @@ env:
 
 jobs:
   build-windows:
-    runs-on: windows-latest
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
 
@@ -360,11 +368,22 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           name: "EncryptX CLI v${{ github.ref_name }}"
           tag: ${{ github.ref_name }}
-          prerelease: ${{ github.event.inputs.prerelease || contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'rc') }}
+          prerelease: ${{ 
+            github.event_name == 'push' || 
+            github.event.inputs.release_type == 'prerelease' || 
+            github.event.inputs.prerelease == true || 
+            contains(github.ref_name, 'beta') || 
+            contains(github.ref_name, 'alpha') || 
+            contains(github.ref_name, 'rc') || 
+            contains(github.ref_name, 'dev') 
+          }}
           body: |
             # EncryptX CLI ${{ github.ref_name }}
 
             🔐 **Secure file encryption tool with AES-256-GCM encryption**
+            
+            ${{ github.event_name == 'push' && '⚠️ **Pre-release**: This is an automated pre-release from tag push. Use with caution in production.' || '' }}
+            ${{ github.event.inputs.release_type == 'prerelease' && '⚠️ **Pre-release**: This is a pre-release version. Use with caution in production.' || '' }}
 
             ## 📦 Downloads
 
