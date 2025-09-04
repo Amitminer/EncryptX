@@ -1,0 +1,290 @@
+name: Automated Build
+
+on:
+  push:
+    branches: [dev, beta, main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE'
+  pull_request:
+    branches: [dev, beta, main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE'
+
+permissions:
+  contents: write
+  packages: write
+  actions: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            encryptx-backend/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build Windows binary
+        run: |
+          cd encryptx-backend
+          cargo build --release --target x86_64-pc-windows-msvc
+
+      - name: Create Windows package
+        run: |
+          mkdir encryptx-windows
+          copy encryptx-backend\target\x86_64-pc-windows-msvc\release\encryptx-backend.exe encryptx-windows\encryptx.exe
+          copy README.md encryptx-windows\
+          copy LICENSE encryptx-windows\
+          echo "EncryptX CLI Build ${{ github.sha }}" > encryptx-windows\BUILD_INFO.txt
+          echo "Branch: ${{ github.ref_name }}" >> encryptx-windows\BUILD_INFO.txt
+          echo "Commit: ${{ github.sha }}" >> encryptx-windows\BUILD_INFO.txt
+          echo "Date: ${{ github.event.head_commit.timestamp }}" >> encryptx-windows\BUILD_INFO.txt
+          echo "Workflow: ${{ github.run_id }}" >> encryptx-windows\BUILD_INFO.txt
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: encryptx-windows-${{ github.sha }}
+          path: encryptx-windows/
+          retention-days: 30
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-gnu
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libssl-dev
+
+      - name: Cache cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            encryptx-backend/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build Linux binary
+        run: |
+          cd encryptx-backend
+          cargo build --release --target x86_64-unknown-linux-gnu
+
+      - name: Create Linux package
+        run: |
+          mkdir encryptx-linux
+          cp encryptx-backend/target/x86_64-unknown-linux-gnu/release/encryptx-backend encryptx-linux/encryptx
+          cp README.md encryptx-linux/
+          cp LICENSE encryptx-linux/
+          echo "EncryptX CLI Build ${{ github.sha }}" > encryptx-linux/BUILD_INFO.txt
+          echo "Branch: ${{ github.ref_name }}" >> encryptx-linux/BUILD_INFO.txt
+          echo "Commit: ${{ github.sha }}" >> encryptx-linux/BUILD_INFO.txt
+          echo "Date: ${{ github.event.head_commit.timestamp }}" >> encryptx-linux/BUILD_INFO.txt
+          echo "Workflow: ${{ github.run_id }}" >> encryptx-linux/BUILD_INFO.txt
+
+          # Create install script
+          cat > encryptx-linux/install.sh << 'EOF'
+          #!/bin/bash
+          set -e
+
+          echo "Installing EncryptX CLI (Development Build)..."
+
+          # Check if running as root
+          if [[ $EUID -eq 0 ]]; then
+            INSTALL_DIR="/usr/local/bin"
+          else
+            INSTALL_DIR="$HOME/.local/bin"
+            mkdir -p "$INSTALL_DIR"
+          fi
+
+          # Copy binary
+          cp encryptx "$INSTALL_DIR/"
+          chmod +x "$INSTALL_DIR/encryptx"
+
+          echo "EncryptX CLI installed to $INSTALL_DIR/encryptx"
+          echo "Make sure $INSTALL_DIR is in your PATH"
+
+          # Add to PATH if not already there
+          if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
+            echo "Add this to your shell profile (.bashrc, .zshrc, etc.):"
+            echo "export PATH=\"$INSTALL_DIR:\$PATH\""
+          fi
+
+          echo "Installation complete!"
+          echo "This is a development build. For stable releases, visit:"
+          echo "https://github.com/${{ github.repository }}/releases"
+          EOF
+          chmod +x encryptx-linux/install.sh
+
+          # Create tarball
+          tar -czf encryptx-linux-x64-${{ github.sha }}.tar.gz -C encryptx-linux .
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: encryptx-linux-${{ github.sha }}
+          path: |
+            encryptx-linux-x64-${{ github.sha }}.tar.gz
+            encryptx-linux/
+          retention-days: 30
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Cache cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            encryptx-backend/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build macOS binary
+        run: |
+          cd encryptx-backend
+          cargo build --release --target aarch64-apple-darwin
+
+      - name: Create macOS package
+        run: |
+          mkdir encryptx-macos
+          cp encryptx-backend/target/aarch64-apple-darwin/release/encryptx-backend encryptx-macos/encryptx
+          cp README.md encryptx-macos/
+          cp LICENSE encryptx-macos/
+          echo "EncryptX CLI Build ${{ github.sha }}" > encryptx-macos/BUILD_INFO.txt
+          echo "Branch: ${{ github.ref_name }}" >> encryptx-macos/BUILD_INFO.txt
+          echo "Commit: ${{ github.sha }}" >> encryptx-macos/BUILD_INFO.txt
+          echo "Date: ${{ github.event.head_commit.timestamp }}" >> encryptx-macos/BUILD_INFO.txt
+          echo "Workflow: ${{ github.run_id }}" >> encryptx-macos/BUILD_INFO.txt
+
+          # Create install script
+          cat > encryptx-macos/install.sh << 'EOF'
+          #!/bin/bash
+          set -e
+
+          echo "Installing EncryptX CLI for macOS (Development Build)..."
+
+          # Check if running as root
+          if [[ $EUID -eq 0 ]]; then
+            INSTALL_DIR="/usr/local/bin"
+          else
+            INSTALL_DIR="$HOME/.local/bin"
+            mkdir -p "$INSTALL_DIR"
+          fi
+
+          # Copy binary
+          cp encryptx "$INSTALL_DIR/"
+          chmod +x "$INSTALL_DIR/encryptx"
+
+          # Remove quarantine attribute (for downloaded binaries)
+          xattr -d com.apple.quarantine "$INSTALL_DIR/encryptx" 2>/dev/null || true
+
+          echo "EncryptX CLI installed to $INSTALL_DIR/encryptx"
+          echo "Make sure $INSTALL_DIR is in your PATH"
+
+          # Add to PATH if not already there
+          if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
+            echo "Add this to your shell profile (.bashrc, .zshrc, etc.):"
+            echo "export PATH=\"$INSTALL_DIR:\$PATH\""
+          fi
+
+          echo "Installation complete!"
+          echo "This is a development build. For stable releases, visit:"
+          echo "https://github.com/${{ github.repository }}/releases"
+          EOF
+          chmod +x encryptx-macos/install.sh
+
+          # Create tarball
+          tar -czf encryptx-macos-arm64-${{ github.sha }}.tar.gz -C encryptx-macos .
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: encryptx-macos-${{ github.sha }}
+          path: |
+            encryptx-macos-arm64-${{ github.sha }}.tar.gz
+            encryptx-macos/
+          retention-days: 30
+
+  build-summary:
+    needs: [build-windows, build-linux, build-macos]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Build Summary
+        run: |
+          echo "## 🚀 Automated Build Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Trigger:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Build Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Platform | Status | Artifact Name |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|--------|---------------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Windows x64 | ${{ needs.build-windows.result == 'success' && '✅ Success' || '❌ Failed' }} | \`encryptx-windows-${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Linux x64 | ${{ needs.build-linux.result == 'success' && '✅ Success' || '❌ Failed' }} | \`encryptx-linux-${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| macOS ARM64 | ${{ needs.build-macos.result == 'success' && '✅ Success' || '❌ Failed' }} | \`encryptx-macos-${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 Usage" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. Go to the [Actions tab](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+          echo "2. Download the artifact for your platform" >> $GITHUB_STEP_SUMMARY
+          echo "3. Extract and run the \`install.sh\` script (Linux/macOS) or use the \`.exe\` directly (Windows)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Note:** These are development builds. For stable releases, visit [Releases](${{ github.server_url }}/${{ github.repository }}/releases)." >> $GITHUB_STEP_SUMMARY
+
+  cleanup-old-artifacts:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev'
+    steps:
+      - name: Delete old artifacts
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: |
+            encryptx-windows-*
+            encryptx-linux-*
+            encryptx-macos-*
+          useGlob: true
+          skipRecent: 5
