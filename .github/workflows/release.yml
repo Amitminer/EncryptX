@@ -2,8 +2,12 @@ name: Build and Release CLI
 
 on:
   push:
-    tags:
-      - "v*"
+    branches: [dev, beta, main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE'
   workflow_dispatch:
     inputs:
       prerelease:
@@ -361,20 +365,40 @@ jobs:
           # List files
           ls -la
 
+      - name: Generate version tag
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            # For commits, create version based on branch and short commit
+            BRANCH="${{ github.ref_name }}"
+            SHORT_SHA="$(echo ${{ github.sha }} | cut -c1-7)"
+            VERSION="${BRANCH}-${SHORT_SHA}"
+            echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
+            echo "name=EncryptX CLI v${VERSION} (Pre-release)" >> $GITHUB_OUTPUT
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+          else
+            # For manual dispatch, use current date
+            VERSION="manual-$(date +%Y%m%d-%H%M%S)"
+            echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
+            echo "name=EncryptX CLI v${VERSION}" >> $GITHUB_OUTPUT
+            echo "prerelease=${{ github.event.inputs.prerelease }}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Create Release
         uses: ncipollo/release-action@v1.14.0
         with:
           artifacts: "release-assets/*"
           token: ${{ secrets.GITHUB_TOKEN }}
-          name: "EncryptX CLI v${{ github.ref_name }}"
-          tag: ${{ github.ref_name }}
-          prerelease: ${{ github.event_name == 'push' || github.event.inputs.release_type == 'prerelease' || github.event.inputs.prerelease == true || contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'rc') || contains(github.ref_name, 'dev') }}
+          name: "${{ steps.version.outputs.name }}"
+          tag: "${{ steps.version.outputs.tag }}"
+          prerelease: ${{ steps.version.outputs.prerelease }}
+          makeLatest: false
           body: |
-            # EncryptX CLI ${{ github.ref_name }}
+            # EncryptX CLI ${{ steps.version.outputs.tag }}
 
             🔐 **Secure file encryption tool with AES-256-GCM encryption**
             
-            ${{ github.event_name == 'push' && '⚠️ **Pre-release**: This is an automated pre-release from tag push. Use with caution in production.' || '' }}
+            ${{ github.event_name == 'push' && '⚠️ **Pre-release**: This is an automated pre-release from commit. Use with caution in production.' || '' }}
             ${{ github.event.inputs.release_type == 'prerelease' && '⚠️ **Pre-release**: This is a pre-release version. Use with caution in production.' || '' }}
 
             ## 📦 Downloads
