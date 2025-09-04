@@ -1,4 +1,4 @@
-name: Build and Release CLI
+name: Automated Build
 
 on:
   push:
@@ -365,41 +365,27 @@ jobs:
           # List files
           ls -la
 
-      - name: Generate version tag
-        id: version
-        run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
-            # For commits, create version based on branch and short commit
-            BRANCH="${{ github.ref_name }}"
-            SHORT_SHA="$(echo ${{ github.sha }} | cut -c1-7)"
-            VERSION="${BRANCH}-${SHORT_SHA}"
-            echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
-            echo "name=EncryptX CLI v${VERSION} (Pre-release)" >> $GITHUB_OUTPUT
-            echo "prerelease=true" >> $GITHUB_OUTPUT
-          else
-            # For manual dispatch, use current date
-            VERSION="manual-$(date +%Y%m%d-%H%M%S)"
-            echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
-            echo "name=EncryptX CLI v${VERSION}" >> $GITHUB_OUTPUT
-            echo "prerelease=${{ github.event.inputs.prerelease }}" >> $GITHUB_OUTPUT
-          fi
-
       - name: Create Release
         uses: ncipollo/release-action@v1.14.0
         with:
           artifacts: "release-assets/*"
           token: ${{ secrets.GITHUB_TOKEN }}
-          name: "${{ steps.version.outputs.name }}"
-          tag: "${{ steps.version.outputs.tag }}"
-          prerelease: ${{ steps.version.outputs.prerelease }}
+          name: "Build v${{ github.run_number }}"
+          tag: "v${{ github.run_number }}"
+          prerelease: true
           makeLatest: false
           body: |
-            # EncryptX CLI ${{ steps.version.outputs.tag }}
+            # EncryptX CLI Build v${{ github.run_number }}
 
             🔐 **Secure file encryption tool with AES-256-GCM encryption**
             
-            ${{ github.event_name == 'push' && '⚠️ **Pre-release**: This is an automated pre-release from commit. Use with caution in production.' || '' }}
-            ${{ github.event.inputs.release_type == 'prerelease' && '⚠️ **Pre-release**: This is a pre-release version. Use with caution in production.' || '' }}
+            ⚠️ **Pre-release**: This is an automated build from commit. Use with caution in production.
+            
+            ### Build Information
+            - **Branch**: `${{ github.ref_name }}`
+            - **Commit**: `${{ github.sha }}`
+            - **Build Date**: ${{ github.event.head_commit.timestamp }}
+            - **Workflow Run**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
             ## 📦 Downloads
 
