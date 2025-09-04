@@ -35,6 +35,17 @@ jobs:
         with:
           targets: x86_64-pc-windows-msvc
 
+      - name: Generate Cargo.lock if missing
+        run: |
+          cd encryptx-backend
+          if [ ! -f Cargo.lock ]; then
+            echo "Cargo.lock not found, generating..."
+            cargo generate-lockfile
+          else
+            echo "Cargo.lock found"
+          fi
+        shell: bash
+
       - name: Cache cargo dependencies
         uses: actions/cache@v4
         with:
@@ -44,7 +55,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             encryptx-backend/target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('encryptx-backend/Cargo.lock') }}
 
       - name: Build Windows binary
         run: |
@@ -85,6 +96,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y pkg-config libssl-dev
 
+      - name: Generate Cargo.lock if missing
+        run: |
+          cd encryptx-backend
+          if [ ! -f Cargo.lock ]; then
+            echo "Cargo.lock not found, generating..."
+            cargo generate-lockfile
+          else
+            echo "Cargo.lock found"
+          fi
+
       - name: Cache cargo dependencies
         uses: actions/cache@v4
         with:
@@ -94,7 +115,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             encryptx-backend/target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('encryptx-backend/Cargo.lock') }}
 
       - name: Build Linux binary
         run: |
@@ -169,6 +190,16 @@ jobs:
         with:
           targets: aarch64-apple-darwin
 
+      - name: Generate Cargo.lock if missing
+        run: |
+          cd encryptx-backend
+          if [ ! -f Cargo.lock ]; then
+            echo "Cargo.lock not found, generating..."
+            cargo generate-lockfile
+          else
+            echo "Cargo.lock found"
+          fi
+
       - name: Cache cargo dependencies
         uses: actions/cache@v4
         with:
@@ -178,7 +209,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             encryptx-backend/target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('encryptx-backend/Cargo.lock') }}
 
       - name: Build macOS binary
         run: |
