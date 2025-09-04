@@ -3,11 +3,11 @@ name: Build and Release CLI
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
     inputs:
       prerelease:
-        description: 'Create as prerelease'
+        description: "Create as prerelease"
         required: false
         default: true
         type: boolean
@@ -56,25 +56,25 @@ jobs:
         run: |
           # Install WiX Toolset v3 (available on GitHub runners)
           choco install wixtoolset -y
-          
+
           # Create WiX source file
           $wxsContent = @'
           <?xml version="1.0" encoding="UTF-8"?>
           <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-            <Product Id="*" Name="EncryptX CLI" Language="1033" Version="1.6.0" Manufacturer="EncryptX Team" UpgradeCode="{12345678-1234-1234-1234-123456789012}">
+            <Product Id="*" Name="EncryptX CLI" Language="1033" Version="1.6.0" Manufacturer="AmitxD" UpgradeCode="{12345678-1234-1234-1234-123456789012}">
               <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
-              
+
               <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
               <MediaTemplate EmbedCab="yes" />
-              
+
               <Feature Id="ProductFeature" Title="EncryptX CLI" Level="1">
                 <ComponentGroupRef Id="ProductComponents" />
               </Feature>
-              
+
               <!-- Add to system PATH -->
               <SetProperty Id="ARPINSTALLLOCATION" Value="[INSTALLFOLDER]" After="CostFinalize" />
             </Product>
-            
+
             <Fragment>
               <Directory Id="TARGETDIR" Name="SourceDir">
                 <Directory Id="ProgramFiles64Folder">
@@ -82,16 +82,16 @@ jobs:
                 </Directory>
               </Directory>
             </Fragment>
-            
+
             <Fragment>
               <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
                 <Component Id="MainExecutable" Guid="{12345678-1234-1234-1234-123456789014}">
                   <File Id="EncryptXExe" Source="encryptx-windows\encryptx.exe" KeyPath="yes" />
-                  
+
                   <!-- Add to system PATH -->
                   <Environment Id="PATH" Name="PATH" Value="[INSTALLFOLDER]" Permanent="no" Part="last" Action="set" System="yes" />
                 </Component>
-                
+
                 <Component Id="Documentation" Guid="{12345678-1234-1234-1234-123456789015}">
                   <File Id="ReadmeFile" Source="encryptx-windows\README.md" />
                   <File Id="LicenseFile" Source="encryptx-windows\LICENSE" />
@@ -101,9 +101,9 @@ jobs:
             </Fragment>
           </Wix>
           '@
-          
+
           $wxsContent | Out-File -FilePath "encryptx.wxs" -Encoding UTF8
-          
+
           # Build MSI
           & "C:\Program Files (x86)\WiX Toolset v3.11\bin\candle.exe" encryptx.wxs
           & "C:\Program Files (x86)\WiX Toolset v3.11\bin\light.exe" -ext WixUIExtension encryptx.wixobj -o encryptx-windows\encryptx-installer.msi
@@ -154,14 +154,14 @@ jobs:
           echo "EncryptX CLI v${{ github.ref_name }}" > encryptx-linux/VERSION.txt
           echo "Build: ${{ github.sha }}" >> encryptx-linux/VERSION.txt
           echo "Date: ${{ github.event.head_commit.timestamp }}" >> encryptx-linux/VERSION.txt
-          
+
           # Create install script
           cat > encryptx-linux/install.sh << 'EOF'
           #!/bin/bash
           set -e
-          
+
           echo "Installing EncryptX CLI..."
-          
+
           # Check if running as root
           if [[ $EUID -eq 0 ]]; then
             INSTALL_DIR="/usr/local/bin"
@@ -169,24 +169,24 @@ jobs:
             INSTALL_DIR="$HOME/.local/bin"
             mkdir -p "$INSTALL_DIR"
           fi
-          
+
           # Copy binary
           cp encryptx "$INSTALL_DIR/"
           chmod +x "$INSTALL_DIR/encryptx"
-          
+
           echo "EncryptX CLI installed to $INSTALL_DIR/encryptx"
           echo "Make sure $INSTALL_DIR is in your PATH"
-          
+
           # Add to PATH if not already there
           if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
             echo "Add this to your shell profile (.bashrc, .zshrc, etc.):"
             echo "export PATH=\"$INSTALL_DIR:\$PATH\""
           fi
-          
+
           echo "Installation complete!"
           EOF
           chmod +x encryptx-linux/install.sh
-          
+
           # Create tarball
           tar -czf encryptx-linux-x64.tar.gz -C encryptx-linux .
 
@@ -233,14 +233,14 @@ jobs:
           echo "EncryptX CLI v${{ github.ref_name }}" > encryptx-macos/VERSION.txt
           echo "Build: ${{ github.sha }}" >> encryptx-macos/VERSION.txt
           echo "Date: ${{ github.event.head_commit.timestamp }}" >> encryptx-macos/VERSION.txt
-          
+
           # Create install script
           cat > encryptx-macos/install.sh << 'EOF'
           #!/bin/bash
           set -e
-          
+
           echo "Installing EncryptX CLI for macOS..."
-          
+
           # Check if running as root
           if [[ $EUID -eq 0 ]]; then
             INSTALL_DIR="/usr/local/bin"
@@ -248,27 +248,27 @@ jobs:
             INSTALL_DIR="$HOME/.local/bin"
             mkdir -p "$INSTALL_DIR"
           fi
-          
+
           # Copy binary
           cp encryptx "$INSTALL_DIR/"
           chmod +x "$INSTALL_DIR/encryptx"
-          
+
           # Remove quarantine attribute (for downloaded binaries)
           xattr -d com.apple.quarantine "$INSTALL_DIR/encryptx" 2>/dev/null || true
-          
+
           echo "EncryptX CLI installed to $INSTALL_DIR/encryptx"
           echo "Make sure $INSTALL_DIR is in your PATH"
-          
+
           # Add to PATH if not already there
           if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
             echo "Add this to your shell profile (.bashrc, .zshrc, etc.):"
             echo "export PATH=\"$INSTALL_DIR:\$PATH\""
           fi
-          
+
           echo "Installation complete!"
           EOF
           chmod +x encryptx-macos/install.sh
-          
+
           # Create tarball
           tar -czf encryptx-macos-arm64.tar.gz -C encryptx-macos .
 
@@ -293,18 +293,18 @@ jobs:
         run: |
           # Create release directory
           mkdir release-assets
-          
+
           # Copy Windows MSI installer
           cp encryptx-windows/encryptx-installer.msi release-assets/encryptx-windows-x64-installer.msi
-          
+
           # Copy tarballs
           cp encryptx-linux-x64.tar.gz release-assets/
           cp encryptx-macos-arm64.tar.gz release-assets/
-          
+
           # Create checksums
           cd release-assets
           sha256sum * > checksums.txt
-          
+
           # List files
           ls -la
 
@@ -318,26 +318,26 @@ jobs:
           prerelease: ${{ github.event.inputs.prerelease || contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'rc') }}
           body: |
             # EncryptX CLI ${{ github.ref_name }}
-            
+
             🔐 **Secure file encryption tool with AES-256-GCM encryption**
-            
+
             ## 📦 Downloads
-            
+
             | Platform | Architecture | Download | Size |
             |----------|-------------|----------|------|
             | Windows | x64 | [MSI Installer](./encryptx-windows-x64-installer.msi) | ~5MB |
             | Linux | x64 | [Tarball](./encryptx-linux-x64.tar.gz) | ~3MB |
             | macOS | ARM64 (Apple Silicon) | [Tarball](./encryptx-macos-arm64.tar.gz) | ~3MB |
-            
+
             ## 🚀 Quick Start
-            
+
             ### Windows
             ```cmd
             # Download and run the MSI installer
             # EncryptX will be automatically added to your PATH
             encryptx encrypt --file secret.txt --password mypassword
             ```
-            
+
             ### Linux
             ```bash
             # Download and extract
@@ -345,11 +345,11 @@ jobs:
             tar -xzf encryptx-linux-x64.tar.gz
             cd encryptx-linux
             ./install.sh
-            
+
             # Use the CLI
             encryptx encrypt --file secret.txt --password mypassword
             ```
-            
+
             ### macOS
             ```bash
             # Download and extract
@@ -357,64 +357,64 @@ jobs:
             tar -xzf encryptx-macos-arm64.tar.gz
             cd encryptx-macos
             ./install.sh
-            
+
             # Use the CLI
             encryptx encrypt --file secret.txt --password mypassword
             ```
-            
+
             ## 🔧 CLI Usage
-            
+
             ```bash
             # Encrypt with password
             encryptx encrypt --file document.pdf --password mysecret
-            
+
             # Encrypt with auto-generated key
             encryptx encrypt --file data.zip
-            
+
             # Decrypt with password
             encryptx decrypt --file document.xd --password mysecret
-            
+
             # Generate secure key
             encryptx generate-key
             ```
-            
+
             ## ✨ Features
-            
+
             - 🔐 **AES-256-GCM** authenticated encryption
             - 🧠 **Argon2id** password-based key derivation
             - 📦 **Automatic compression** with zstd
             - 🛡️ **Memory-safe** Rust implementation
             - 🔑 **Dual modes**: password or key-based encryption
             - 📁 **Any file type** supported
-            
+
             ## 🔒 Security
-            
+
             - **No telemetry** - completely offline operation
             - **No key storage** - keys never saved to disk
             - **Memory safety** - automatic key zeroization
             - **Authenticated encryption** - prevents tampering
-            
+
             ## 📋 System Requirements
-            
+
             - **Windows**: Windows 10/11 64-bit
             - **Linux**: x86_64 with glibc 2.17+
             - **macOS**: Apple Silicon (M1/M2) with macOS 11+
-            
+
             ## 🔍 Verification
-            
+
             Verify download integrity with checksums:
             ```bash
             sha256sum -c checksums.txt
             ```
-            
+
             ---
-            
+
             ### 📊 Build Information
             - **Branch**: ${{ github.ref_name }}
             - **Commit**: ${{ github.sha }}
             - **Build Date**: ${{ github.event.head_commit.timestamp }}
             - **Workflow**: [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-            
+
             ### 🐛 Issues & Support
             - [Report bugs](https://github.com/${{ github.repository }}/issues)
             - [Documentation](https://github.com/${{ github.repository }}#readme)

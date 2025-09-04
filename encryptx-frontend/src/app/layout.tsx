@@ -4,6 +4,7 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { Navigation } from "@/app/layout/navigation"
 import { BackendKeepAlive } from "@/app/utils/backend-keep-alive"
+import { Toaster } from "@/app/components/ui/sonner"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -31,6 +32,12 @@ export default function RootLayout({
         <BackendKeepAlive />
         <Navigation />
         <main>{children}</main>
+        <Toaster 
+          position="top-right"
+          richColors
+          closeButton
+          duration={4000}
+        />
       </body>
     </html>
   )

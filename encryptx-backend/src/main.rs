@@ -169,7 +169,7 @@ async fn main() -> std::io::Result<()> {
         return Ok(());
     }
     println!("Starting EncryptX Backend Server...");
-    println!("Listening on http://127.0.0.1:8080");
+    println!("Listening on http://0.0.0.0:8080");
     // Create rate limiter: 10 requests per minute per IP
     let rate_limiter = Arc::new(RateLimiter::new(10, 60));
 

@@ -4,10 +4,16 @@ import { useState, useCallback, useMemo } from "react"
 import { useDropzone } from "react-dropzone"
 import { Button } from "@/app/ui/button"
 import {
-  Unlock, Upload, Eye, KeyRound, Shield, Zap, File,
+  Unlock, Upload, Eye, KeyRound, Shield, Zap, File, Key, ToggleLeft, ToggleRight
 } from "lucide-react"
 import { formatFileSize } from "@/app/utils"
 import { DecryptStatusHelper } from "@/app/utils/status-helper"
+import { 
+  convertFromHumanReadable, 
+  isHumanReadableFormat, 
+  getBase64FromHuman,
+  validateBase64Key
+} from "@/app/utils/crypto"
 import type {DecryptFileStatus, DecryptButtonProps, FileListItemProps, PasswordInputProps} from "@/app/types"
 
 // Constants
@@ -16,13 +22,10 @@ const ACCEPTED_FILE_TYPES = { "application/octet-stream": [".xd"] }
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080"
 
 const extractFilenameFromHeader = (disposition: string): string => {
-  console.log("Content-Disposition header:", disposition)
-
   // Try robust regex first
   let match = disposition.match(/filename\*?=(?:UTF-8''|"?)([^";\r\n]*)/i)
   if (match) {
     const filename = decodeURIComponent(match[1].trim())
-    console.log("Extracted filename (robust regex):", filename)
     return filename
   }
 
@@ -30,24 +33,41 @@ const extractFilenameFromHeader = (disposition: string): string => {
   match = disposition.match(/filename="([^"]+)"/i)
   if (match) {
     const filename = match[1]
-    console.log("Extracted filename (fallback regex):", filename)
     return filename
   }
 
-  console.log("Filename not found in Content-Disposition header, using default.")
   return "decrypted.bin"
 }
 
 const getErrorMessage = (status: number, errorText?: string): string => {
   switch (status) {
     case 401:
-      return "Wrong password or file is corrupt"
+      return "Wrong password/key or file is corrupt"
     case 400:
-      return errorText || "Bad request"
+      return errorText || "Invalid request"
     default:
       return `Error (${status})`
   }
 }
+
+// Helper function to validate Base64 format
+const isValidBase64 = (str: string): boolean => {
+  try {
+    // Check if it matches Base64 pattern
+    const base64Pattern = /^[A-Za-z0-9+/]*={0,2}$/
+    if (!base64Pattern.test(str)) {
+      return false
+    }
+    
+    // Try to decode it
+    atob(str)
+    return true
+  } catch {
+    return false
+  }
+}
+
+
 
 // Subcomponents
 const AnimatedBackground = () => (
@@ -131,13 +151,40 @@ const FileListItem = ({ file, index, status, onRemove, isProcessing }: FileListI
   </div>
 )
 
+const ModeToggle = ({ useKey, onToggle }: { useKey: boolean, onToggle: (useKey: boolean) => void }) => (
+  <div className="mb-6">
+    <div className="flex items-center justify-center gap-4 p-4 bg-gradient-to-r from-zinc-900/40 to-zinc-800/40 rounded-2xl border border-purple-400/20">
+      <div className={`flex items-center gap-2 transition-all duration-300 ${!useKey ? 'text-pink-400' : 'text-gray-500'}`}>
+        <KeyRound className="w-5 h-5" />
+        <span className="font-medium">Password</span>
+      </div>
+      
+      <button
+        onClick={() => onToggle(!useKey)}
+        className="relative p-1 transition-all duration-300 hover:scale-110"
+      >
+        {useKey ? (
+          <ToggleRight className="w-8 h-8 text-cyan-400" />
+        ) : (
+          <ToggleLeft className="w-8 h-8 text-gray-400" />
+        )}
+      </button>
+      
+      <div className={`flex items-center gap-2 transition-all duration-300 ${useKey ? 'text-cyan-400' : 'text-gray-500'}`}>
+        <Key className="w-5 h-5" />
+        <span className="font-medium">Encryption Key</span>
+      </div>
+    </div>
+  </div>
+)
+
 const PasswordInput = ({ password, onChange }: PasswordInputProps) => (
   <div className="mb-8">
     <div className="relative group">
       <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 w-6 h-6 text-purple-400 pointer-events-none z-10 group-focus-within:text-pink-400 transition-colors duration-300" />
       <input
         type="password"
-        placeholder="Decryption Password (optional)"
+        placeholder="Enter your password"
         value={password}
         onChange={(e) => onChange(e.target.value)}
         className="w-full bg-gradient-to-r from-zinc-900/60 to-zinc-800/40 border border-purple-400/30 rounded-2xl py-5 pl-14 pr-4 text-white placeholder:text-gray-400 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 transition-all duration-300 text-base sm:text-lg backdrop-blur-sm hover:border-purple-400/50 group relative z-0"
@@ -149,6 +196,108 @@ const PasswordInput = ({ password, onChange }: PasswordInputProps) => (
     </div>
   </div>
 )
+
+const KeyInput = ({ encryptionKey, onChange }: { encryptionKey: string, onChange: (key: string) => void }) => {
+  const isHumanFormat = isHumanReadableFormat(encryptionKey)
+  const hasMapping = isHumanFormat ? getBase64FromHuman(encryptionKey) !== null : false
+  const isValidBase64Key = !isHumanFormat && encryptionKey.length > 0 ? isValidBase64(encryptionKey) : true
+  const isValidSize = !isHumanFormat && encryptionKey.length > 0 && isValidBase64Key ? validateBase64Key(encryptionKey) : true
+  
+  const getValidationState = () => {
+    if (encryptionKey.length === 0) return 'empty'
+    if (isHumanFormat) return hasMapping ? 'valid-human' : 'invalid-human'
+    if (!isValidBase64Key) return 'invalid-base64'
+    if (!isValidSize) return 'invalid-size'
+    return 'valid-base64'
+  }
+  
+  const validationState = getValidationState()
+  
+  return (
+    <div className="mb-8">
+      <div className="relative group">
+        <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-6 h-6 text-cyan-400 pointer-events-none z-10 group-focus-within:text-pink-400 transition-colors duration-300" />
+        <input
+          type="text"
+          placeholder="Enter encryption key (Base64 or human-readable format)"
+          value={encryptionKey}
+          onChange={(e) => onChange(e.target.value)}
+          className={`w-full bg-gradient-to-r from-zinc-900/60 to-zinc-800/40 border rounded-2xl py-5 pl-14 pr-4 text-white placeholder:text-gray-400 focus:ring-2 transition-all duration-300 text-base sm:text-lg backdrop-blur-sm group relative z-0 ${
+            validationState === 'valid-human' ? 'border-green-400/30 focus:ring-green-500 focus:border-green-500 hover:border-green-400/50 font-bold' :
+            validationState === 'invalid-human' ? 'border-red-400/30 focus:ring-red-500 focus:border-red-500 hover:border-red-400/50 font-bold' :
+            validationState === 'valid-base64' ? 'border-green-400/30 focus:ring-green-500 focus:border-green-500 hover:border-green-400/50 font-mono' :
+            validationState === 'invalid-base64' ? 'border-red-400/30 focus:ring-red-500 focus:border-red-500 hover:border-red-400/50 font-mono' :
+            validationState === 'invalid-size' ? 'border-orange-400/30 focus:ring-orange-500 focus:border-orange-500 hover:border-orange-400/50 font-mono' :
+            'border-cyan-400/30 focus:ring-cyan-500 focus:border-cyan-500 hover:border-cyan-400/50 font-mono'
+          }`}
+        />
+        <div className="absolute inset-0 rounded-2xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 pointer-events-none">
+          <div className="absolute top-0 left-1/4 w-8 h-0.5 bg-gradient-to-r from-transparent via-pink-400 to-transparent" />
+          <div className="absolute bottom-0 right-1/4 w-12 h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent" />
+        </div>
+      </div>
+      
+      <div className="mt-3 pl-4 flex items-start gap-2">
+        <div className={`w-1 h-1 rounded-full mt-2 flex-shrink-0 animate-pulse ${
+          validationState === 'valid-human' || validationState === 'valid-base64' ? 'bg-green-400' :
+          validationState === 'invalid-size' ? 'bg-orange-400' :
+          validationState.startsWith('invalid') ? 'bg-red-400' : 'bg-cyan-400'
+        }`} />
+        <div>
+          <p className="text-sm text-gray-500 leading-relaxed">
+            {validationState === 'empty' && (
+              'Paste the Base64 encryption key or human-readable format (e.g., DRAGON-MANGO-FOREST-12345).'
+            )}
+            {validationState === 'valid-human' && (
+              <span className="text-green-400">
+                ✓ Valid human-readable key! Ready to decrypt.
+              </span>
+            )}
+            {validationState === 'invalid-human' && (
+              <span className="text-red-400">
+                ⚠️ Invalid human-readable format. Check your key format.
+              </span>
+            )}
+            {validationState === 'valid-base64' && (
+              <span className="text-green-400">
+                ✓ Valid Base64 key! Ready to decrypt.
+              </span>
+            )}
+            {validationState === 'invalid-base64' && (
+              <span className="text-red-400">
+                ⚠️ Invalid Base64 format. Please check your encryption key.
+              </span>
+            )}
+            {validationState === 'invalid-size' && (
+              <span className="text-orange-400">
+                ⚠️ Invalid key size. Expected 32 bytes, got {(() => {
+                  try {
+                    return atob(encryptionKey).length
+                  } catch {
+                    return 'unknown'
+                  }
+                })()} bytes.
+              </span>
+            )}
+          </p>
+          
+          {isHumanFormat && (
+            <div className={`mt-2 p-2 rounded text-xs ${
+              hasMapping 
+                ? 'bg-green-900/20 border border-green-400/30 text-green-300'
+                : 'bg-red-900/20 border border-red-400/30 text-red-300'
+            }`}>
+              <strong>{hasMapping ? '🎉' : '⚠️'}</strong> {hasMapping 
+                ? 'Perfect! This human-readable key will work for decryption.'
+                : 'Invalid format. Human-readable keys should be like: WORD1-WORD2-WORD3-NNNNN (e.g., DRAGON-MANGO-FOREST-12345)'
+              }
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const DecryptButton = ({ isDisabled, isProcessing, fileCount, hasPassword, onClick }: DecryptButtonProps) => (
   <div className="relative">
@@ -196,13 +345,25 @@ const DecryptButton = ({ isDisabled, isProcessing, fileCount, hasPassword, onCli
 export function DecryptForm() {
   const [files, setFiles] = useState<File[]>([])
   const [password, setPassword] = useState("")
+  const [encryptionKey, setEncryptionKey] = useState("")
+  const [useKey, setUseKey] = useState(false)
   const [status, setStatus] = useState<DecryptFileStatus>({})
   const [isProcessing, setIsProcessing] = useState(false)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
+
+  // Helper function to show toast notifications
+  const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'info', duration = 3000) => {
+    setToast({ message, type })
+    setTimeout(() => setToast(null), duration)
+  }, [])
 
   // Memoized values
   const hasFiles = useMemo(() => files.length > 0, [files.length])
   const hasPassword = useMemo(() => password.length > 0, [password.length])
-  const isButtonDisabled = useMemo(() => !hasFiles || isProcessing, [hasFiles, isProcessing])
+  const hasKey = useMemo(() => encryptionKey.length > 0, [encryptionKey.length])
+  const isValidKey = useMemo(() => hasKey && !isHumanReadableFormat(encryptionKey), [hasKey, encryptionKey])
+  const hasCredentials = useMemo(() => useKey ? hasKey : hasPassword, [useKey, hasKey, hasPassword]) // Allow any key format
+  const isButtonDisabled = useMemo(() => !hasFiles || isProcessing || !hasCredentials, [hasFiles, isProcessing, hasCredentials])
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setFiles(acceptedFiles)
@@ -251,6 +412,28 @@ export function DecryptForm() {
         reader.onerror = () => reject(new Error("Failed to read error response"))
         reader.readAsText(xhr.response)
       })
+      
+      // Parse specific error messages from backend
+      if (xhr.status === 400) {
+        if (errorText.includes('Invalid encryption key format')) {
+          return '⚠️ Invalid encryption key format. Please check your Base64 key or try the human-readable format.'
+        }
+        if (errorText.includes('Invalid encryption key size')) {
+          return '⚠️ Invalid encryption key size. Please verify your key is correct.'
+        }
+        if (errorText.includes('Password must be at least')) {
+          return '⚠️ Password is too short. Please use at least 8 characters.'
+        }
+        if (errorText.includes('Password cannot be empty')) {
+          return '⚠️ Password cannot be empty. Please enter your password.'
+        }
+        return errorText || 'Invalid request. Please check your input.'
+      }
+      
+      if (xhr.status === 401) {
+        return '❌ Wrong password/key or the file is corrupted. Please verify your credentials.'
+      }
+      
       return getErrorMessage(xhr.status, errorText)
     } catch {
       return getErrorMessage(xhr.status)
@@ -258,13 +441,60 @@ export function DecryptForm() {
   }, [])
   const decryptSingleFile = useCallback((file: File): Promise<void> => {
     return new Promise((resolve, reject) => {
+      let actualKey = encryptionKey
+      
+      // Validate key format before sending to backend
+      if (useKey && hasKey) {
+        // Check if it's human-readable format
+        if (isHumanReadableFormat(encryptionKey)) {
+          const base64Key = getBase64FromHuman(encryptionKey)
+          if (base64Key) {
+            actualKey = base64Key
+            // Show success toast
+            showToast('🎉 Human-readable key successfully converted!', 'success')
+          } else {
+            reject(new Error('⚠️ Invalid human-readable key format. Please check the format (e.g., DRAGON-MANGO-FOREST-12345) or use the Base64 key from your backup.'))
+            return
+          }
+        } else {
+          // Validate Base64 format
+          if (!isValidBase64(encryptionKey)) {
+            const errorMsg = '⚠️ Invalid Base64 key format. Please check your encryption key or use the human-readable format instead.'
+            showToast(errorMsg, 'error')
+            reject(new Error(errorMsg))
+            return
+          }
+          
+          // Validate Base64 key size
+          try {
+            const decoded = atob(encryptionKey)
+            if (decoded.length !== 32) {
+              const errorMsg = `⚠️ Invalid key size. Expected 32 bytes, got ${decoded.length} bytes. Please check your encryption key.`
+              showToast(errorMsg, 'error')
+              reject(new Error(errorMsg))
+              return
+            }
+          } catch (e) {
+            const errorMsg = '⚠️ Invalid Base64 key format. Please check your encryption key.'
+            showToast(errorMsg, 'error')
+            reject(new Error(errorMsg))
+            return
+          }
+          
+          actualKey = encryptionKey
+        }
+      }
+      
       const xhr = new XMLHttpRequest()
       const url = `${BACKEND_URL}${DECRYPTION_ENDPOINT}`
 
       xhr.open("POST", url)
       xhr.setRequestHeader("Content-Type", "application/octet-stream")
 
-      if (hasPassword) {
+      // Set appropriate header based on mode
+      if (useKey && hasKey) {
+        xhr.setRequestHeader("x-enc-key", actualKey)
+      } else if (hasPassword) {
         xhr.setRequestHeader("x-password", password)
       }
 
@@ -273,29 +503,39 @@ export function DecryptForm() {
       xhr.onload = () => {
         if (xhr.status === 200) {
           downloadFile(xhr.response, xhr)
+          showToast('✅ File decrypted successfully!', 'success')
           resolve()
         } else {
           handleDecryptError(xhr)
             .then((errorMessage) => {
+              showToast(errorMessage, 'error', 5000) // Show error toast for longer
               reject(new Error(errorMessage))
             })
             .catch(() => {
-              reject(new Error(getErrorMessage(xhr.status)))
+              const errorMsg = getErrorMessage(xhr.status)
+              showToast(errorMsg, 'error', 5000)
+              reject(new Error(errorMsg))
             })
         }
       }
 
-      xhr.onerror = () => reject(new Error("Network error"))
+      xhr.onerror = () => {
+        const errorMsg = "Network error. Please check your connection and try again."
+        showToast(errorMsg, 'error')
+        reject(new Error(errorMsg))
+      }
 
       file.arrayBuffer()
         .then((buffer) => {
           xhr.send(buffer)
         })
         .catch(() => {
-          reject(new Error("Failed to read file"))
+          const errorMsg = "Failed to read file. Please try selecting the file again."
+          showToast(errorMsg, 'error')
+          reject(new Error(errorMsg))
         })
     })
-  }, [password, hasPassword, downloadFile, handleDecryptError])
+  }, [useKey, hasKey, encryptionKey, hasPassword, password, downloadFile, handleDecryptError, showToast])
 
   const handleDecrypt = useCallback(async () => {
     if (!hasFiles) return
@@ -305,7 +545,7 @@ export function DecryptForm() {
 
     for (const file of files) {
       try {
-        const statusKey = hasPassword ? 'verifying' : 'decrypting'
+        const statusKey = hasCredentials ? 'verifying' : 'decrypting'
         newStatus[file.name] = statusKey
         setStatus({ ...newStatus })
 
@@ -322,7 +562,7 @@ export function DecryptForm() {
     }
 
     setIsProcessing(false)
-  }, [hasFiles, hasPassword, files, decryptSingleFile])
+  }, [hasFiles, hasCredentials, files, decryptSingleFile])
 
   return (
     <div className="relative">
@@ -403,15 +643,57 @@ export function DecryptForm() {
           )}
         </div>
 
-        <PasswordInput password={password} onChange={setPassword} />
+        <ModeToggle useKey={useKey} onToggle={setUseKey} />
+        
+        {useKey ? (
+          <KeyInput encryptionKey={encryptionKey} onChange={setEncryptionKey} />
+        ) : (
+          <PasswordInput password={password} onChange={setPassword} />
+        )}
 
         <DecryptButton
           isDisabled={isButtonDisabled}
           isProcessing={isProcessing}
           fileCount={files.length}
-          hasPassword={hasPassword}
+          hasPassword={hasCredentials}
           onClick={handleDecrypt}
         />
+        
+        {useKey && hasKey && isHumanReadableFormat(encryptionKey) && (
+          <div className={`mt-4 p-3 rounded-xl text-center ${
+            getBase64FromHuman(encryptionKey) 
+              ? 'bg-green-900/20 border border-green-400/30'
+              : 'bg-red-900/20 border border-red-400/30'
+          }`}>
+            <p className={`text-sm ${
+              getBase64FromHuman(encryptionKey) ? 'text-green-300' : 'text-red-300'
+            }`}>
+              {getBase64FromHuman(encryptionKey) ? (
+                <>🎉 <strong>Perfect!</strong> This human-readable key is ready for decryption!</>
+              ) : (
+                <>⚠️ <strong>Invalid format!</strong> Please check your human-readable key format.</>
+              )}
+            </p>
+          </div>
+        )}
+        
+        {/* Toast Notification */}
+        {toast && (
+          <div className={`fixed top-4 right-4 z-[9999] text-white px-6 py-3 rounded-lg shadow-2xl transform transition-all duration-300 ease-out animate-bounce ${
+            toast.type === 'success' ? 'bg-green-600' :
+            toast.type === 'error' ? 'bg-red-600' :
+            'bg-blue-600'
+          }`}>
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full animate-pulse ${
+                toast.type === 'success' ? 'bg-green-300' :
+                toast.type === 'error' ? 'bg-red-300' :
+                'bg-blue-300'
+              }`} />
+              <span className="font-medium">{toast.message}</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

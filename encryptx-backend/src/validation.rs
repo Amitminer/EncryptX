@@ -72,11 +72,11 @@ pub fn validate_encryption_key(key_b64: &str) -> Result<Vec<u8>, String> {
 
     let key = general_purpose::STANDARD
         .decode(key_b64)
-        .map_err(|e| format!("Invalid base64 key format: {}", e))?;
+        .map_err(|_| "Invalid encryption key format. Please check your Base64 key or use the human-readable format.".to_string())?;
 
     if key.len() != AES_KEY_SIZE {
         return Err(format!(
-            "Invalid key size: expected {} bytes, got {} bytes",
+            "Invalid encryption key size. Expected {} bytes, got {} bytes. Please verify your key is correct.",
             AES_KEY_SIZE, key.len()
         ));
     }

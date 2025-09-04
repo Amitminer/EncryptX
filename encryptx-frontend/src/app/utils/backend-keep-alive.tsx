@@ -15,9 +15,7 @@ export function BackendKeepAlive() {
       try {
         const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
         const response = await fetch(`${backendUrl}/health`);
-        if (response.ok) {
-          console.log("Backend keep-alive: Ping successful.")
-        } else {
+        if (!response.ok) {
           console.error(`Backend keep-alive: Ping failed with status ${response.status}.`)
         }
       } catch (error) {

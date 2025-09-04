@@ -43,6 +43,10 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Configure Next.js to bind to all interfaces in Docker
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
+
 # Copy built application
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
