@@ -18,15 +18,19 @@
 use actix_cors::Cors;
 use actix_web::http::header::{CONTENT_DISPOSITION, CONTENT_TYPE};
 use actix_web::web::Bytes;
-use actix_web::{App, HttpRequest, HttpResponse, HttpServer, Responder, get, post};
-use base64::{Engine as _, engine::general_purpose};
+use actix_web::{App, HttpRequest, HttpResponse, HttpServer, Responder, get, post, web};
 use clap::{Parser, Subcommand};
-use rand::RngCore;
-use rand::rngs::OsRng;
-use zeroize::Zeroize;
-use zstd::stream::{decode_all, encode_all};
+use std::sync::Arc;
 pub mod cli;
+pub mod constants;
 pub mod crypto;
+pub mod middleware;
+pub mod service;
+pub mod validation;
+use constants::server::*;
+use middleware::SecurityHeaders;
+use service::*;
+use validation::*;
 
 /// EncryptX Backend CLI
 #[derive(Parser)]
@@ -64,146 +68,45 @@ enum Commands {
     },
 }
 
-/// Generates a cryptographically secure 256-bit encryption key.
-/// Generates a cryptographically secure 256-bit (32-byte) random encryption key using the system's secure random number generator.
-///
-/// # Returns
-/// A 32-byte array containing the generated encryption key.
-///
-/// # Panics
-/// Panics if the system random number generator fails.
-fn generate_secure_key() -> [u8; 32] {
-    let mut key = [0u8; 32];
-    OsRng
-        .try_fill_bytes(&mut key)
-        .expect("Failed to generate secure key");
-    key
-}
-
 /// File encryption endpoint supporting both key-based and password-based modes.
 /// Mode is determined by presence of x-password header.
 #[post("/encrypt")]
 /// Handles file encryption requests for the `/encrypt` endpoint.
 ///
-/// Supports both password-based and key-based encryption modes, determined by the presence of the `x-password` header.
-/// - **Password-based encryption:** Requires an `x-password` header and derives a key using Argon2id with a random 32-byte salt. The original filename can be specified via the `x-orig-filename` header.
-/// - **Key-based encryption:** Uses a base64-encoded 256-bit key from the `x-enc-key` header, or generates a secure random key if not provided. The original filename can be specified via the `x-orig-filename` header.
+/// Supports both password-based and key-based encryption modes, determined by request headers.
+/// Uses the service layer for business logic and validation.
 ///
 /// # Returns
-/// An encrypted file as a binary stream with appropriate headers, or an error response if encryption fails or headers are invalid.
-async fn encrypt_file(req: HttpRequest, body: Bytes) -> impl Responder {
-    // Compress the file bytes before encryption
-    let original_size = body.len();
-    let compressed = match encode_all(&body[..], 3) {
-        Ok(c) => c,
-        Err(e) => {
-            return HttpResponse::InternalServerError().body(format!("Compression error: {e}"));
-        }
-    };
-    // Add a header byte to indicate compression (0x01)
-    let mut compressed_with_flag = Vec::with_capacity(1 + compressed.len());
-    compressed_with_flag.push(0x01);
-    compressed_with_flag.extend_from_slice(&compressed);
-    let compressed_size = compressed_with_flag.len();
-    println!("Original size: {original_size} bytes");
-    println!("Compressed size: {compressed_size} bytes");
-
-    // Check for password-based encryption request
-    if let Some(password_header) = req.headers().get("x-password") {
-        let password = match password_header.to_str() {
-            Ok(p) => p.to_string(), // Need owned String for async operation
-            Err(_) => return HttpResponse::BadRequest().body("Invalid password header encoding"),
-        };
-
-        // Generate random 32-byte salt for Argon2 key derivation
-        let mut salt = [0u8; 32];
-        OsRng
-            .try_fill_bytes(&mut salt)
-            .expect("Failed to fill salt");
-
-        let orig_name = req
-            .headers()
-            .get("x-orig-filename")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("file.bin");
-
-        println!("Encrypting file with password-based encryption: {orig_name}");
-
-        // Use async encryption to avoid blocking the server thread
-        match crypto::encrypt_with_password_async(
-            &compressed_with_flag,
-            password,
-            orig_name,
-            salt.to_vec(),
-        )
-        .await
-        {
-            Ok(encrypted) => HttpResponse::Ok()
+/// An encrypted file as a binary stream with appropriate headers, or an error response if encryption fails.
+async fn encrypt_file(
+    req: HttpRequest,
+    body: Bytes,
+    rate_limiter: web::Data<Arc<RateLimiter>>,
+) -> impl Responder {
+    // Check rate limit
+    let client_ip = get_client_ip(&req);
+    if !rate_limiter.check_rate_limit(&client_ip) {
+        return HttpResponse::TooManyRequests()
+            .body("Rate limit exceeded. Please try again later.");
+    }
+    match FileEncryptionService::encrypt_file(&req, body).await {
+        Ok(result) => {
+            let mut response = HttpResponse::Ok()
                 .insert_header((CONTENT_TYPE, "application/octet-stream"))
                 .insert_header((CONTENT_DISPOSITION, "attachment; filename=\"encrypted.xd\""))
-                .body(encrypted),
-            Err(e) => HttpResponse::InternalServerError().body(format!("Encryption error: {e}")),
+                .body(result.encrypted_data);
+
+            // Add generated key to response headers if available
+            if let Some(generated_key) = result.generated_key {
+                response.headers_mut().insert(
+                    actix_web::http::header::HeaderName::from_static("x-generated-key"),
+                    actix_web::http::header::HeaderValue::from_str(&generated_key).unwrap(),
+                );
+            }
+
+            response
         }
-    } else {
-        // Key-based encryption mode
-        let generate_and_log_key = || {
-            let random_key = generate_secure_key();
-            let key_b64_str = general_purpose::STANDARD.encode(random_key);
-            println!("Generated random encryption key: {key_b64_str}");
-            random_key
-        };
-
-        let mut final_key = if let Some(val) = req.headers().get("x-enc-key") {
-            let key_b64 = val.to_str().unwrap_or("");
-            if key_b64.is_empty() {
-                // No key provided, generate a secure random one
-                generate_and_log_key()
-            } else {
-                // Decode provided base64 key
-                match general_purpose::STANDARD.decode(key_b64) {
-                    Ok(k) if k.len() == 32 => {
-                        let mut arr = [0u8; 32];
-                        arr.copy_from_slice(&k);
-                        arr
-                    }
-                    Ok(k) => {
-                        return HttpResponse::BadRequest().body(format!(
-                            "Key is {} bytes after base64 decode, expected 32",
-                            k.len()
-                        ));
-                    }
-                    Err(e) => {
-                        return HttpResponse::BadRequest()
-                            .body(format!("Base64 decode error: {e}"));
-                    }
-                }
-            }
-        } else {
-            // No key header at all, generate random key
-            generate_and_log_key()
-        };
-
-        let orig_name = req
-            .headers()
-            .get("x-orig-filename")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("file.bin");
-
-        println!("Encrypting file with key-based encryption: {orig_name}");
-
-        match crypto::encrypt_with_header(&compressed_with_flag, &final_key, orig_name) {
-            Ok(encrypted) => {
-                final_key.zeroize(); // Clear key from memory
-                HttpResponse::Ok()
-                    .insert_header((CONTENT_TYPE, "application/octet-stream"))
-                    .insert_header((CONTENT_DISPOSITION, "attachment; filename=\"encrypted.xd\""))
-                    .body(encrypted)
-            }
-            Err(e) => {
-                final_key.zeroize();
-                HttpResponse::InternalServerError().body(format!("Encryption error: {e}"))
-            }
-        }
+        Err(e) => e.into(),
     }
 }
 
@@ -212,117 +115,31 @@ async fn encrypt_file(req: HttpRequest, body: Bytes) -> impl Responder {
 #[post("/decrypt")]
 /// Handles file decryption requests for the `/decrypt` endpoint.
 ///
-/// Supports both password-based and key-based decryption modes, determined by the presence of the `x-password` or `x-enc-key` headers. Returns the decrypted file as a binary stream with the original filename, or an appropriate HTTP error response if decryption fails.
-async fn decrypt_file(req: HttpRequest, body: Bytes) -> impl Responder {
-    // Check for password-based decryption request
-    if let Some(password_header) = req.headers().get("x-password") {
-        let password = match password_header.to_str() {
-            Ok(p) => p.to_string(), // Need owned String for async operation
-            Err(_) => return HttpResponse::BadRequest().body("Invalid password header encoding"),
-        };
-
-        // Use async decryption for Argon2 key derivation (CPU-intensive)
-        match crypto::decrypt_with_password_async(&body, password).await {
-            Ok((decrypted, filename)) => {
-                // Check for compression flag
-                if decrypted.first() == Some(&0x01) {
-                    match decode_all(&decrypted[1..]) {
-                        Ok(decompressed) => HttpResponse::Ok()
-                            .insert_header((CONTENT_TYPE, "application/octet-stream"))
-                            .insert_header((
-                                CONTENT_DISPOSITION,
-                                format!("attachment; filename=\"{filename}\""),
-                            ))
-                            .body(decompressed),
-                        Err(e) => HttpResponse::InternalServerError()
-                            .body(format!("Decompression error: {e}")),
-                    }
-                } else {
-                    // No compression flag, return as is
-                    HttpResponse::Ok()
-                        .insert_header((CONTENT_TYPE, "application/octet-stream"))
-                        .insert_header((
-                            CONTENT_DISPOSITION,
-                            format!("attachment; filename=\"{filename}\""),
-                        ))
-                        .body(decrypted)
-                }
-            }
-            Err(e) => match e {
-                crypto::CryptoError::WrongDecryptionMethod(msg) => {
-                    HttpResponse::BadRequest().body(msg)
-                }
-                crypto::CryptoError::AuthenticationError => {
-                    HttpResponse::Unauthorized().body("Wrong password or file is corrupt")
-                }
-                crypto::CryptoError::FormatError => HttpResponse::BadRequest()
-                    .body("Invalid file format. The file may be corrupt or not a valid .xd file."),
-                crypto::CryptoError::AsyncError(msg) => HttpResponse::InternalServerError()
-                    .body(format!("Async processing error: {msg}")),
-                _ => HttpResponse::InternalServerError().body(format!("Decryption error: {e}")),
-            },
-        }
-    } else {
-        // Key-based decryption mode
-        let key_opt = match req.headers().get("x-enc-key") {
-            Some(val) => {
-                let key_b64 = val.to_str().unwrap_or("");
-                match general_purpose::STANDARD.decode(key_b64) {
-                    Ok(k) if k.len() == 32 => Some(k),
-                    Ok(k) => {
-                        return HttpResponse::BadRequest().body(format!(
-                            "Key is {} bytes after base64 decode, expected 32",
-                            k.len()
-                        ));
-                    }
-                    Err(e) => {
-                        return HttpResponse::BadRequest()
-                            .body(format!("Base64 decode error: {e}"));
-                    }
-                }
-            }
-            None => None, // Will try to use embedded key from file header
-        };
-
-        let key_ref = key_opt.as_deref();
-        match crypto::decrypt_with_header(&body, key_ref) {
-            Ok((decrypted, filename)) => {
-                // Check for compression flag
-                if decrypted.first() == Some(&0x01) {
-                    match decode_all(&decrypted[1..]) {
-                        Ok(decompressed) => HttpResponse::Ok()
-                            .insert_header((CONTENT_TYPE, "application/octet-stream"))
-                            .insert_header((
-                                CONTENT_DISPOSITION,
-                                format!("attachment; filename=\"{filename}\""),
-                            ))
-                            .body(decompressed),
-                        Err(e) => HttpResponse::InternalServerError()
-                            .body(format!("Decompression error: {e}")),
-                    }
-                } else {
-                    // No compression flag, return as is
-                    HttpResponse::Ok()
-                        .insert_header((CONTENT_TYPE, "application/octet-stream"))
-                        .insert_header((
-                            CONTENT_DISPOSITION,
-                            format!("attachment; filename=\"{filename}\""),
-                        ))
-                        .body(decrypted)
-                }
-            }
-            Err(e) => match e {
-                crypto::CryptoError::WrongDecryptionMethod(msg) => {
-                    HttpResponse::BadRequest().body(msg)
-                }
-                crypto::CryptoError::AuthenticationError => {
-                    HttpResponse::Unauthorized().body("Wrong key or file is corrupt")
-                }
-                crypto::CryptoError::FormatError => HttpResponse::BadRequest()
-                    .body("Invalid file format. The file may be corrupt or not a valid .xd file."),
-                _ => HttpResponse::InternalServerError().body(format!("Decryption error: {e}")),
-            },
-        }
+/// Supports both password-based and key-based decryption modes, determined by request headers.
+/// Uses the service layer for business logic and validation.
+///
+/// # Returns
+/// The decrypted file as a binary stream with the original filename, or an error response if decryption fails.
+async fn decrypt_file(
+    req: HttpRequest,
+    body: Bytes,
+    rate_limiter: web::Data<Arc<RateLimiter>>,
+) -> impl Responder {
+    // Check rate limit
+    let client_ip = get_client_ip(&req);
+    if !rate_limiter.check_rate_limit(&client_ip) {
+        return HttpResponse::TooManyRequests()
+            .body("Rate limit exceeded. Please try again later.");
+    }
+    match FileEncryptionService::decrypt_file(&req, body).await {
+        Ok(result) => HttpResponse::Ok()
+            .insert_header((CONTENT_TYPE, "application/octet-stream"))
+            .insert_header((
+                CONTENT_DISPOSITION,
+                format!("attachment; filename=\"{}\"", result.original_filename),
+            ))
+            .body(result.decrypted_data),
+        Err(e) => e.into(),
     }
 }
 
@@ -353,14 +170,19 @@ async fn main() -> std::io::Result<()> {
     }
     println!("Starting EncryptX Backend Server...");
     println!("Listening on http://127.0.0.1:8080");
-    HttpServer::new(|| {
+    // Create rate limiter: 10 requests per minute per IP
+    let rate_limiter = Arc::new(RateLimiter::new(10, 60));
+
+    HttpServer::new(move || {
         let allowed_origins = std::env::var("ALLOWED_ORIGIN")
-            .unwrap_or_else(|_| "http://localhost:3000".to_string())
+            .unwrap_or_else(|_| DEFAULT_CORS_ORIGIN.to_string())
             .split(',')
             .map(|s| s.trim().to_string())
             .collect::<Vec<_>>();
+
         App::new()
-            .app_data(actix_web::web::PayloadConfig::new(1024 * 1024 * 1024)) // 1GB max file size
+            .app_data(web::Data::new(rate_limiter.clone()))
+            .app_data(web::PayloadConfig::new(MAX_FILE_SIZE)) // Use constant for max file size
             .wrap({
                 let mut cors = Cors::default();
                 for origin in &allowed_origins {
@@ -373,10 +195,10 @@ async fn main() -> std::io::Result<()> {
                         "x-orig-filename",
                         "content-type",
                     ])
-                    .send_wildcard()
-                    .expose_headers(vec!["Content-Disposition"])
-                    .supports_credentials()
+                    .expose_headers(vec!["Content-Disposition", "x-generated-key"])
+                    .max_age(3600) // Cache preflight requests for 1 hour
             })
+            .wrap(SecurityHeaders) // Add security headers
             .wrap(
                 actix_web::middleware::Logger::default(), // Log all requests
             )

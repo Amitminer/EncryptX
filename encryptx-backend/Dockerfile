@@ -1,5 +1,5 @@
 # encryptx-backend/Dockerfile
-FROM rust:latest
+FROM rust:1.89-slim
 
 WORKDIR /app
 

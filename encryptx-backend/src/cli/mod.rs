@@ -1,6 +1,7 @@
 //!
 //! This is EncryptX, but in CLI form for CLI users.
 //!
+use crate::constants::{compression::*, crypto::*, format::*};
 use crate::crypto;
 use base64::{Engine, engine::general_purpose};
 use clap::{Parser, Subcommand};
@@ -8,7 +9,7 @@ use rand::RngCore;
 use std::fs;
 use std::io;
 use std::path::Path;
-use zstd::stream::{encode_all, decode_all};
+use zstd::stream::{decode_all, encode_all};
 
 /// Command-line interface for EncryptX Backend.
 ///
@@ -146,13 +147,14 @@ fn check_output_file(output_path: &str, force: bool) -> Result<(), CliError> {
         }
     } else {
         // Only check parent if it exists (i.e., not current directory)
-        if let Some(parent) = path.parent() {
-            if !parent.as_os_str().is_empty() && !parent.exists() {
-                return Err(CliError::InvalidInput(format!(
-                    "Parent directory '{}' does not exist",
-                    parent.display()
-                )));
-            }
+        if let Some(parent) = path.parent()
+            && !parent.as_os_str().is_empty()
+            && !parent.exists()
+        {
+            return Err(CliError::InvalidInput(format!(
+                "Parent directory '{}' does not exist",
+                parent.display()
+            )));
         }
         Ok(())
     }
@@ -164,9 +166,10 @@ fn validate_key(key_b64: &str) -> Result<Vec<u8>, CliError> {
         .decode(key_b64)
         .map_err(|e| CliError::InvalidInput(format!("Invalid base64 key: {e}")))?;
 
-    if key.len() != 32 {
+    if key.len() != AES_KEY_SIZE {
         return Err(CliError::InvalidInput(format!(
-            "Key must be 32 bytes (256 bits), got {} bytes",
+            "Key must be {} bytes (256 bits), got {} bytes",
+            AES_KEY_SIZE,
             key.len()
         )));
     }
@@ -246,27 +249,33 @@ pub async fn run_cli() -> Result<bool, CliError> {
             println!("🔐 Encrypting file '{file}'...");
 
             // Compress before encryption
-            let compressed = encode_all(&data[..], 3).map_err(|e| CliError::Crypto(format!("Compression error: {e}")))?;
+            let compressed = encode_all(&data[..], ZSTD_COMPRESSION_LEVEL)
+                .map_err(|e| CliError::Crypto(format!("Compression error: {e}")))?;
             let mut compressed_with_flag = Vec::with_capacity(1 + compressed.len());
-            compressed_with_flag.push(0x01);
+            compressed_with_flag.push(COMPRESSION_FLAG);
             compressed_with_flag.extend_from_slice(&compressed);
             let encrypted = if let Some(password) = password {
                 // Password-based encryption (Argon2id)
-                let mut salt = [0u8; 32];
+                let mut salt = [0u8; SALT_SIZE];
                 rand::rngs::OsRng
                     .try_fill_bytes(&mut salt)
                     .map_err(|e| CliError::Crypto(format!("Failed to generate salt: {e}")))?;
 
-                crypto::encrypt_with_password_async(&compressed_with_flag, password, orig_name, salt.to_vec())
-                    .await
-                    .map_err(|e| CliError::Crypto(format!("Password encryption failed: {e}")))?
+                crypto::encrypt_with_password_async(
+                    &compressed_with_flag,
+                    password,
+                    orig_name,
+                    salt.to_vec(),
+                )
+                .await
+                .map_err(|e| CliError::Crypto(format!("Password encryption failed: {e}")))?
             } else {
                 // Key-based encryption (AES-256-GCM)
                 let final_key = if let Some(key) = validated_key {
                     key
                 } else {
                     // Generate random key
-                    let mut k = [0u8; 32];
+                    let mut k = [0u8; AES_KEY_SIZE];
                     rand::rngs::OsRng
                         .try_fill_bytes(&mut k)
                         .map_err(|e| CliError::Crypto(format!("Failed to generate key: {e}")))?;
@@ -363,8 +372,9 @@ pub async fn run_cli() -> Result<bool, CliError> {
 
             // Write decrypted file
             // Decompress after decryption if needed
-            let output_bytes = if decrypted.first() == Some(&0x01) {
-                decode_all(&decrypted[1..]).map_err(|e| CliError::Crypto(format!("Decompression error: {e}")))?
+            let output_bytes = if decrypted.first() == Some(&COMPRESSION_FLAG) {
+                decode_all(&decrypted[1..])
+                    .map_err(|e| CliError::Crypto(format!("Decompression error: {e}")))?
             } else {
                 decrypted
             };

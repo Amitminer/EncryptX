@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::task;
 use zeroize::ZeroizeOnDrop;
+use crate::constants::{crypto::*, format::*};
 
 /// Error types for cryptographic operations in EncryptX.
 /// These cover all failure modes from key derivation to authentication failures.
@@ -40,25 +41,24 @@ pub struct SecureKey {
 }
 
 impl SecureKey {
-    /// Creates a new `SecureKey` instance containing the provided 32-byte key.
+    /// Creates a new `SecureKey` instance containing the provided AES-256 key.
     ///
     /// The key will be securely zeroized from memory when the `SecureKey` is dropped.
-    pub fn new(key: [u8; 32]) -> Self {
+    pub fn new(key: [u8; AES_KEY_SIZE]) -> Self {
         Self { key }
     }
 
-    /// Returns a reference to the underlying 32-byte key as a byte slice.
+    /// Returns a reference to the underlying AES-256 key as a byte slice.
     pub fn as_slice(&self) -> &[u8] {
         &self.key
     }
 }
 
 /// File header for standard key-based encryption.
-/// Contains metadata and optionally embeds the key for convenience.
+/// Contains metadata but NEVER stores the encryption key for security.
 #[derive(Serialize, Deserialize)]
 pub struct XdHeader {
     pub filename: String,
-    pub key: Option<String>,
     /// Format version for backward compatibility
     pub version: u8,
     /// Unix timestamp when file was encrypted
@@ -88,12 +88,7 @@ pub struct XdPasswordHeader {
     pub timestamp: u64,
 }
 
-/// Argon2 parameters chosen for good security/performance balance.
-/// 64MB memory usage prevents efficient GPU attacks while staying reasonable for most systems.
-const ARGON2_MEMORY_COST: u32 = 65536; // 64 MB
-const ARGON2_TIME_COST: u32 = 3; // 3 iterations
-const ARGON2_PARALLELISM: u32 = 1; // Single thread to avoid complexity
-const SALT_LENGTH: usize = 32;
+// Argon2 parameters are now defined in constants.rs for better maintainability
 
 /// Derives encryption key from password using Argon2 in async context.
 /// Asynchronously derives a 32-byte encryption key from a password and salt using Argon2id.
@@ -109,10 +104,10 @@ const SALT_LENGTH: usize = 32;
 pub async fn derive_key_from_password_async(
     password: String,
     salt: Vec<u8>,
-) -> Result<[u8; 32], CryptoError> {
-    if salt.len() != SALT_LENGTH {
+) -> Result<[u8; AES_KEY_SIZE], CryptoError> {
+    if salt.len() != SALT_SIZE {
         return Err(CryptoError::KeyDerivationError(
-            "Invalid salt length".to_string(),
+            format!("Invalid salt length: expected {}, got {}", SALT_SIZE, salt.len()),
         ));
     }
 
@@ -138,10 +133,10 @@ pub async fn derive_key_from_password_async(
 pub fn derive_key_from_password_argon2(
     password: &str,
     salt: &[u8],
-) -> Result<[u8; 32], CryptoError> {
-    if salt.len() != SALT_LENGTH {
+) -> Result<[u8; AES_KEY_SIZE], CryptoError> {
+    if salt.len() != SALT_SIZE {
         return Err(CryptoError::KeyDerivationError(
-            "Invalid salt length".to_string(),
+            format!("Invalid salt length: expected {}, got {}", SALT_SIZE, salt.len()),
         ));
     }
 
@@ -150,7 +145,7 @@ pub fn derive_key_from_password_argon2(
         ARGON2_MEMORY_COST, // memory cost (64 MB)
         ARGON2_TIME_COST,   // time cost (3 iterations)
         ARGON2_PARALLELISM, // parallelism (1 thread)
-        Some(32),           // output length matches AES-256 key size
+        Some(AES_KEY_SIZE), // output length matches AES-256 key size
     )
     .map_err(|e| CryptoError::KeyDerivationError(format!("Argon2 params error: {e}")))?;
 
@@ -166,14 +161,14 @@ pub fn derive_key_from_password_argon2(
 
     let hash_value = hash.hash.unwrap();
     let hash_bytes = hash_value.as_bytes();
-    if hash_bytes.len() < 32 {
+    if hash_bytes.len() < AES_KEY_SIZE {
         return Err(CryptoError::KeyDerivationError(
-            "Hash too short".to_string(),
+            format!("Hash too short: expected {}, got {}", AES_KEY_SIZE, hash_bytes.len()),
         ));
     }
 
-    let mut key = [0u8; 32];
-    key.copy_from_slice(&hash_bytes[..32]);
+    let mut key = [0u8; AES_KEY_SIZE];
+    key.copy_from_slice(&hash_bytes[..AES_KEY_SIZE]);
     Ok(key)
 }
 
@@ -195,14 +190,14 @@ pub fn encrypt_with_header(
     key: &[u8],
     filename: &str,
 ) -> Result<Vec<u8>, CryptoError> {
-    if key.len() != 32 {
+    if key.len() != AES_KEY_SIZE {
         return Err(CryptoError::EncryptionError(
-            "Key must be exactly 32 bytes".to_string(),
+            format!("Key must be exactly {} bytes, got {}", AES_KEY_SIZE, key.len()),
         ));
     }
 
     let secure_key = SecureKey::new({
-        let mut k = [0u8; 32];
+        let mut k = [0u8; AES_KEY_SIZE];
         k.copy_from_slice(key);
         k
     });
@@ -221,8 +216,7 @@ pub fn encrypt_with_header(
 
     let header = XdHeader {
         filename: filename.to_string(),
-        key: Some(base64::engine::general_purpose::STANDARD.encode(key)),
-        version: 2,
+        version: KEY_FORMAT_VERSION,
         timestamp: std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
@@ -285,7 +279,7 @@ pub async fn encrypt_with_password_async(
         time_cost: Some(ARGON2_TIME_COST),
         parallelism: Some(ARGON2_PARALLELISM),
         iterations: None, // Not applicable for Argon2
-        version: 3,       // Version 3 indicates Argon2 usage
+        version: PASSWORD_FORMAT_VERSION, // Version 3 indicates Argon2 usage
         timestamp: std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
@@ -296,10 +290,10 @@ pub async fn encrypt_with_password_async(
         CryptoError::EncryptionError("Password header serialization failed".to_string())
     })?;
 
-    // Password-based files start with 0xFF marker for easy identification
+    // Password-based files start with marker for easy identification
     let header_len = (header_json.len() as u32).to_be_bytes();
-    let mut result = Vec::with_capacity(1 + 4 + header_json.len() + 12 + ciphertext.len());
-    result.push(0xFF); // Magic byte identifying password-based encryption
+    let mut result = Vec::with_capacity(1 + HEADER_LENGTH_SIZE + header_json.len() + AES_NONCE_SIZE + ciphertext.len());
+    result.push(PASSWORD_MARKER); // Magic byte identifying password-based encryption
     result.extend_from_slice(&header_len);
     result.extend_from_slice(&header_json);
     result.extend_from_slice(&nonce);
@@ -326,12 +320,12 @@ pub fn decrypt_with_header(
     encrypted_data: &[u8],
     key: Option<&[u8]>,
 ) -> Result<(Vec<u8>, String), CryptoError> {
-    if encrypted_data.len() < 4 {
+    if encrypted_data.len() < HEADER_LENGTH_SIZE {
         return Err(CryptoError::FormatError);
     }
 
     // Detect password-based format and provide helpful error
-    if encrypted_data[0] == 0xFF {
+    if encrypted_data[0] == PASSWORD_MARKER {
         return Err(CryptoError::WrongDecryptionMethod(
             "This is a password-encrypted file. A password is required for decryption.".to_string(),
         ));
@@ -344,43 +338,39 @@ pub fn decrypt_with_header(
         encrypted_data[3],
     ]) as usize;
 
-    if encrypted_data.len() < 4 + header_len + 12 {
+    if encrypted_data.len() < HEADER_LENGTH_SIZE + header_len + AES_NONCE_SIZE {
         return Err(CryptoError::FormatError);
     }
 
-    let header_json = &encrypted_data[4..4 + header_len];
+    let header_json = &encrypted_data[HEADER_LENGTH_SIZE..HEADER_LENGTH_SIZE + header_len];
     let header: XdHeader = serde_json::from_slice(header_json)
         .map_err(|_| CryptoError::DecryptionError("Invalid or corrupted header".to_string()))?;
 
-    let nonce = &encrypted_data[4 + header_len..4 + header_len + 12];
-    let ciphertext = &encrypted_data[4 + header_len + 12..];
+    let nonce = &encrypted_data[HEADER_LENGTH_SIZE + header_len..HEADER_LENGTH_SIZE + header_len + AES_NONCE_SIZE];
+    let ciphertext = &encrypted_data[HEADER_LENGTH_SIZE + header_len + AES_NONCE_SIZE..];
 
-    // Use provided key or fall back to embedded key from header
+    // Use provided key - key is now required for security
     let final_key = if let Some(k) = key {
-        if k.len() != 32 {
+        if k.len() != AES_KEY_SIZE {
             return Err(CryptoError::DecryptionError(
-                "Key must be exactly 32 bytes".to_string(),
+                format!("Key must be exactly {} bytes, got {}", AES_KEY_SIZE, k.len()),
             ));
         }
         k.to_vec()
-    } else if let Some(key_b64) = &header.key {
-        base64::engine::general_purpose::STANDARD
-            .decode(key_b64)
-            .map_err(|_| CryptoError::DecryptionError("Invalid embedded key format".to_string()))?
     } else {
         return Err(CryptoError::DecryptionError(
-            "No decryption key available".to_string(),
+            "Decryption key is required for key-based encrypted files".to_string(),
         ));
     };
 
-    if final_key.len() != 32 {
+    if final_key.len() != AES_KEY_SIZE {
         return Err(CryptoError::DecryptionError(
-            "Invalid key length".to_string(),
+            format!("Invalid key length: expected {}, got {}", AES_KEY_SIZE, final_key.len()),
         ));
     }
 
     let secure_key = SecureKey::new({
-        let mut k = [0u8; 32];
+        let mut k = [0u8; AES_KEY_SIZE];
         k.copy_from_slice(&final_key);
         k
     });
@@ -412,11 +402,11 @@ pub async fn decrypt_with_password_async(
     }
 
     // Ensure this is actually a password-based file
-    if encrypted_data[0] != 0xFF {
+    if encrypted_data[0] != PASSWORD_MARKER {
         return Err(CryptoError::WrongDecryptionMethod("This file was not encrypted with a password. Please decrypt without providing a password.".to_string()));
     }
 
-    if encrypted_data.len() < 5 {
+    if encrypted_data.len() < 1 + HEADER_LENGTH_SIZE {
         return Err(CryptoError::FormatError);
     }
 
@@ -427,11 +417,12 @@ pub async fn decrypt_with_password_async(
         encrypted_data[4],
     ]) as usize;
 
-    if encrypted_data.len() < 5 + header_len + 12 {
+    if encrypted_data.len() < 1 + HEADER_LENGTH_SIZE + header_len + AES_NONCE_SIZE {
         return Err(CryptoError::FormatError);
     }
 
-    let header_json = &encrypted_data[5..5 + header_len];
+    let header_start = 1 + HEADER_LENGTH_SIZE;
+    let header_json = &encrypted_data[header_start..header_start + header_len];
     let header: XdPasswordHeader = serde_json::from_slice(header_json)
         .map_err(|_| CryptoError::DecryptionError("Invalid password-based header".to_string()))?;
 
@@ -451,8 +442,9 @@ pub async fn decrypt_with_password_async(
 
     let secure_key = SecureKey::new(derived_key);
 
-    let nonce = &encrypted_data[5 + header_len..5 + header_len + 12];
-    let ciphertext = &encrypted_data[5 + header_len + 12..];
+    let nonce_start = header_start + header_len;
+    let nonce = &encrypted_data[nonce_start..nonce_start + AES_NONCE_SIZE];
+    let ciphertext = &encrypted_data[nonce_start + AES_NONCE_SIZE..];
 
     let cipher = Aes256Gcm::new_from_slice(secure_key.as_slice()).map_err(|_| {
         CryptoError::DecryptionError("Failed to create cipher with derived key".to_string())

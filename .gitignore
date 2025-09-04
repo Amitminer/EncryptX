@@ -27,6 +27,24 @@ yarn-error.log*
 # local env files
 .env*.local
 .env
+.env.production
+.env.development
+
+# API keys and secrets
+*.key
+*.pem
+*.p12
+*.pfx
+secrets/
+keys/
+
+# Encrypted test files
+*.xd
+
+# Backup files
+*.bak
+*.backup
+*.orig
 
 # vercel
 .vercel
@@ -40,3 +58,4 @@ next-env.d.ts
 
 **/temp/
 **/Cargo.lock
+qodo.md

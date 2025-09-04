@@ -1,7 +1,9 @@
 pub mod cli;
+pub mod constants;
 pub mod crypto;
 
 pub mod api {
+    use crate::constants::{compression::*, format::*};
     use crate::crypto;
     use rand::RngCore;
     use zstd::stream::{decode_all, encode_all};
@@ -17,9 +19,10 @@ pub mod api {
         filename: &str,
     ) -> Result<Vec<u8>, String> {
         // Compress input
-        let compressed = encode_all(input, 3).map_err(|e| format!("Compression error: {e}"))?;
+        let compressed = encode_all(input, ZSTD_COMPRESSION_LEVEL)
+            .map_err(|e| format!("Compression error: {e}"))?;
         let mut compressed_with_flag = Vec::with_capacity(1 + compressed.len());
-        compressed_with_flag.push(0x01);
+        compressed_with_flag.push(COMPRESSION_FLAG);
         compressed_with_flag.extend_from_slice(&compressed);
 
         if let Some(password) = password {
@@ -66,7 +69,7 @@ pub mod api {
                 .map_err(|e| format!("Decryption error: {e}"))?
         };
         // Decompress if flagged
-        if decrypted.first() == Some(&0x01) {
+        if decrypted.first() == Some(&COMPRESSION_FLAG) {
             let decompressed =
                 decode_all(&decrypted[1..]).map_err(|e| format!("Decompression error: {e}"))?;
             Ok((decompressed, filename))
