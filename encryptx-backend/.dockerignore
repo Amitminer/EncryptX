@@ -1,0 +1,35 @@
+# Rust build artifacts
+target/
+# Note: We keep Cargo.lock for reproducible builds in Docker
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Documentation
+README.md
+DOCS.md
+*.md
+
+# Git
+.git/
+.gitignore
+
+# Test files
+tests/
+benches/
+
+# Temporary files
+*.tmp
+*.temp

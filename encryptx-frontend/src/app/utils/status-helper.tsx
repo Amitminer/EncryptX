@@ -1,5 +1,7 @@
+/** Status helpers for encryption and decryption UI feedback */
 import { AlertCircle, CheckCircle } from "lucide-react"
 
+/** Helper for encryption status icons and colors */
 export const EncryptStatusHelper = {
   getStatusIcon: (status: string) => {
     switch (status) {
@@ -32,6 +34,7 @@ export const EncryptStatusHelper = {
   }
 }
 
+/** Helper for decryption status icons and colors */
 export const DecryptStatusHelper = {
   getStatusIcon: (status: string) => {
     switch (status) {

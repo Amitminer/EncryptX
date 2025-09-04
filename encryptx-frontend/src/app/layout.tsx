@@ -4,6 +4,7 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { Navigation } from "@/app/layout/navigation"
 import { BackendKeepAlive } from "@/app/utils/backend-keep-alive"
+import { Toaster } from "@/app/ui/sonner"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -13,13 +14,7 @@ export const metadata: Metadata = {
   keywords: "file encryption, AES-256, secure files, privacy, encryption tool",
 }
 
-/**
- * Defines the root layout for the application, providing global structure, font, and navigation.
- *
- * Wraps all page content with consistent HTML, font styling, backend keep-alive functionality, and navigation bar.
- *
- * @param children - The page content to be rendered within the layout
- */
+/** Root layout with navigation, fonts, and global components */
 export default function RootLayout({
   children,
 }: {
@@ -31,6 +26,12 @@ export default function RootLayout({
         <BackendKeepAlive />
         <Navigation />
         <main>{children}</main>
+        <Toaster 
+          position="top-right"
+          richColors
+          closeButton
+          duration={4000}
+        />
       </body>
     </html>
   )

@@ -6,11 +6,28 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - RUST_LOG=info
-      - ALLOWED_ORIGIN=http://localhost:3000
+      - RUST_LOG=${RUST_LOG:-info}
+      - ALLOWED_ORIGIN=${ALLOWED_ORIGIN:-http://localhost:3000}
     volumes:
       - backend_data:/app/data
     restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--tries=1",
+          "-O",
+          "/dev/null",
+          "http://127.0.0.1:8080/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - encryptx-network
 
   frontend:
     build:
@@ -19,10 +36,33 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_BACKEND_URL=http://localhost:8080
+      - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL:-http://localhost:8080}
+      - NODE_ENV=${NODE_ENV:-development}
     depends_on:
       - backend
     restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--tries=1",
+          "-O",
+          "/dev/null",
+          "http://127.0.0.1:3000/api/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - encryptx-network
 
 volumes:
   backend_data:
+    driver: local
+
+networks:
+  encryptx-network:
+    driver: bridge

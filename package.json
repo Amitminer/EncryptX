@@ -1,0 +1,29 @@
+{
+	"name": "encryptx",
+	"version": "1.6.0",
+	"description": "EncryptX - A file encryption service with frontend and backend",
+	"scripts": {
+		"dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+		"dev:backend": "cd encryptx-backend && cargo run",
+		"dev:frontend": "cd encryptx-frontend && npm run dev",
+		"build": "concurrently \"npm run build:backend\" \"npm run build:frontend\"",
+		"build:backend": "cd encryptx-backend && cargo build --release",
+		"build:frontend": "cd encryptx-frontend && npm run build",
+		"start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+		"start:backend": "cd encryptx-backend && cargo run --release",
+		"start:frontend": "cd encryptx-frontend && npm run start",
+		"test": "concurrently \"npm run test:backend\" \"npm run test:frontend\"",
+		"test:backend": "cd encryptx-backend && cargo test",
+		"test:frontend": "cd encryptx-frontend && npm run test"
+	},
+	"devDependencies": {
+		"concurrently": "^8.0.0"
+	},
+	"keywords": [
+		"encryption",
+		"file-encryption",
+		"security"
+	],
+	"author": "AmitxD",
+	"license": "MIT"
+}

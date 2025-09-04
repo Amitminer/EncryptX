@@ -2,26 +2,17 @@ import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import packageJson from "../../../package.json";
 
-/**
- * Combines multiple class name values into a single string, resolving Tailwind CSS class conflicts.
- *
- * Accepts any number of class name inputs, merges them using `clsx`, and then applies `tailwind-merge` to ensure only the correct Tailwind classes remain.
- *
- * @returns The merged class name string
- */
+/** Combines class names and resolves Tailwind CSS conflicts */
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-/**
- * Returns the current application version as specified in the package.json file.
- *
- * @returns The version string of the application
- */
+/** Returns current application version from package.json */
 export function getVersion() {
   return packageJson.version;
 }
 
+/** Formats file size in bytes to human-readable KB/MB string */
 export const formatFileSize = (bytes: number): string => {
   if (bytes <= 0 || isNaN(bytes)) return "0 MB";
   const mb = bytes / (1024 * 1024);
@@ -32,11 +23,10 @@ export const formatFileSize = (bytes: number): string => {
   return `${kb.toFixed(2)} KB`;
 }
 
+/** GitHub repository URL */
 export const GitHubUrl = "https://github.com/Amitminer/EncryptX";
 
-/**
- * Returns the current year as a number.
- */
+/** Returns current year as number */
 export function getCurrentYear() {
   return new Date().getFullYear()
 }
