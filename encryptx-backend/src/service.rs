@@ -1,6 +1,19 @@
+//! Service layer for EncryptX backend
+//!
+//! This module provides business logic abstraction between HTTP handlers and crypto operations.
+//! It handles file compression, encryption/decryption workflows, and error management.
+//!
+//! # Architecture
+//! - `CompressionService`: Handles zstd compression/decompression with flags
+//! - `EncryptionService`: Manages encryption operations (password and key-based)
+//! - `DecryptionService`: Manages decryption operations with format detection
+//! - `FileEncryptionService`: High-level orchestration of the complete workflow
+//!
+//! # Error Handling
+//! All operations return `ServiceResult<T>` which automatically converts to appropriate HTTP responses.
+//! Cryptographic errors are mapped to user-friendly messages while preserving security.
+
 use crate::constants::{compression::*, format::*};
-/// Service layer for EncryptX backend
-/// Provides business logic abstraction between HTTP handlers and crypto operations
 use crate::crypto::{self, CryptoError};
 use crate::validation::{validate_file_size, validate_crypto_headers};
 use actix_web::{HttpRequest, HttpResponse, web::Bytes};
@@ -11,7 +24,11 @@ use zstd::stream::{decode_all, encode_all};
 /// Result type for service operations
 pub type ServiceResult<T> = Result<T, ServiceError>;
 
-/// Service layer error types
+/// Comprehensive error types for service layer operations.
+///
+/// These errors provide structured error handling across the service layer,
+/// allowing for appropriate HTTP status codes and user-friendly error messages.
+/// Each variant maps to specific HTTP responses in the `From<ServiceError>` implementation.
 #[derive(Debug)]
 pub enum ServiceError {
     Validation(String),
@@ -39,7 +56,11 @@ impl From<CryptoError> for ServiceError {
     }
 }
 
-/// Converts ServiceError to appropriate HTTP response
+/// Converts ServiceError to appropriate HTTP response with security-conscious error messages.
+///
+/// Maps service errors to HTTP status codes and user-friendly messages while avoiding
+/// information leakage that could aid attackers. Authentication errors are deliberately
+/// generic to prevent distinguishing between wrong passwords and corrupted files.
 impl From<ServiceError> for HttpResponse {
     fn from(error: ServiceError) -> Self {
         match error {
@@ -63,7 +84,10 @@ impl From<ServiceError> for HttpResponse {
     }
 }
 
-/// Compressed file data with metadata
+/// Container for compressed file data with compression statistics.
+///
+/// Tracks both original and compressed sizes for monitoring compression efficiency
+/// and providing user feedback about space savings.
 #[derive(Debug)]
 pub struct CompressedData {
     pub data: Vec<u8>,
@@ -71,14 +95,20 @@ pub struct CompressedData {
     pub compressed_size: usize,
 }
 
-/// Encryption result with metadata
+/// Result of encryption operation with optional key generation.
+///
+/// Contains the encrypted data and optionally a generated key (base64 encoded)
+/// if the encryption was performed without a user-provided key.
 #[derive(Debug)]
 pub struct EncryptionResult {
     pub encrypted_data: Vec<u8>,
     pub generated_key: Option<String>, // Base64 encoded key if generated
 }
 
-/// Decryption result with metadata
+/// Result of decryption operation with file metadata.
+///
+/// Contains the decrypted data, original filename from the encrypted file header,
+/// and the final decompressed size for user feedback.
 #[derive(Debug)]
 pub struct DecryptionResult {
     pub decrypted_data: Vec<u8>,
@@ -86,11 +116,27 @@ pub struct DecryptionResult {
     pub decompressed_size: usize,
 }
 
-/// Service for file compression operations
+/// Service for file compression operations using zstd algorithm.
+///
+/// Provides compression and decompression with automatic flag detection.
+/// Uses zstd for fast compression with good ratios, suitable for real-time operations.
 pub struct CompressionService;
 
 impl CompressionService {
-    /// Compresses data with zstd and adds compression flag
+    /// Compresses data with zstd and adds compression flag.
+    ///
+    /// Applies zstd compression at the configured level and prepends a compression flag
+    /// byte to indicate the data is compressed. This allows the decompression function
+    /// to automatically detect and handle compressed data.
+    ///
+    /// # Parameters
+    /// - `data`: The raw data to compress
+    ///
+    /// # Returns
+    /// `CompressedData` containing the compressed bytes with flag, original size, and compressed size
+    ///
+    /// # Errors
+    /// Returns `ServiceError::Validation` for empty data or `ServiceError::Compression` if zstd fails
     pub fn compress(data: &[u8]) -> ServiceResult<CompressedData> {
         if data.is_empty() {
             return Err(ServiceError::Validation(
@@ -115,7 +161,20 @@ impl CompressionService {
         })
     }
 
-    /// Decompresses data if compression flag is present
+    /// Decompresses data if compression flag is present.
+    ///
+    /// Automatically detects if data is compressed by checking for the compression flag
+    /// byte at the beginning. If present, removes the flag and decompresses the remaining
+    /// data using zstd. If no flag is present, returns the data unchanged.
+    ///
+    /// # Parameters
+    /// - `data`: The potentially compressed data with or without compression flag
+    ///
+    /// # Returns
+    /// The decompressed data as a `Vec<u8>`
+    ///
+    /// # Errors
+    /// Returns `ServiceError::Validation` for empty data or `ServiceError::Compression` if zstd decompression fails
     pub fn decompress(data: &[u8]) -> ServiceResult<Vec<u8>> {
         if data.is_empty() {
             return Err(ServiceError::Validation(
@@ -133,11 +192,29 @@ impl CompressionService {
     }
 }
 
-/// Service for encryption operations
+/// Service for encryption operations supporting both password and key-based methods.
+///
+/// Handles the encryption workflow including salt generation for password-based encryption
+/// and random key generation for key-based encryption when no key is provided.
 pub struct EncryptionService;
 
 impl EncryptionService {
-    /// Encrypts data using password-based encryption
+    /// Encrypts data using password-based encryption with Argon2id key derivation.
+    ///
+    /// Uses Argon2id to derive a 256-bit key from the password and a random salt,
+    /// then encrypts the data using AES-256-GCM. The salt and encryption parameters
+    /// are embedded in the file header for future decryption.
+    ///
+    /// # Parameters
+    /// - `data`: The data to encrypt (should be pre-compressed)
+    /// - `password`: The password for key derivation
+    /// - `filename`: Original filename to embed in the encrypted file header
+    ///
+    /// # Returns
+    /// `EncryptionResult` with encrypted data (no generated key for password-based encryption)
+    ///
+    /// # Errors
+    /// Returns `ServiceError::Internal` for salt generation failures or `ServiceError::Crypto` for encryption failures
     pub async fn encrypt_with_password(
         data: &[u8],
         password: String,
@@ -158,7 +235,22 @@ impl EncryptionService {
         })
     }
 
-    /// Encrypts data using key-based encryption
+    /// Encrypts data using key-based encryption with AES-256-GCM.
+    ///
+    /// If a key is provided, uses it directly for encryption. If no key is provided,
+    /// generates a cryptographically secure random 256-bit key and returns it base64-encoded
+    /// in the result for the user to save.
+    ///
+    /// # Parameters
+    /// - `data`: The data to encrypt (should be pre-compressed)
+    /// - `key`: Optional 32-byte encryption key. If None, a random key is generated
+    /// - `filename`: Original filename to embed in the encrypted file header
+    ///
+    /// # Returns
+    /// `EncryptionResult` with encrypted data and optionally the generated key (base64)
+    ///
+    /// # Errors
+    /// Returns `ServiceError::Internal` for key generation failures or `ServiceError::Crypto` for encryption failures
     pub fn encrypt_with_key(
         data: &[u8],
         key: Option<&[u8]>,

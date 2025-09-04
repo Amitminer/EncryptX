@@ -1,5 +1,16 @@
-/// Input validation utilities for EncryptX backend
-/// Provides comprehensive validation for API requests and file operations
+//! Input validation utilities for EncryptX backend
+//!
+//! This module provides comprehensive validation for API requests and file operations,
+//! including rate limiting, file size validation, cryptographic parameter validation,
+//! and security-focused input sanitization.
+//!
+//! # Security Features
+//! - Rate limiting per IP address with configurable windows
+//! - File size limits to prevent resource exhaustion
+//! - Cryptographic key format validation
+//! - Filename sanitization to prevent directory traversal
+//! - Password strength recommendations (non-enforced)
+//! - Client IP extraction with proxy header support
 use crate::constants::{crypto::*, server::*};
 use actix_web::{HttpRequest, HttpResponse, Result as ActixResult};
 use base64::{Engine, engine::general_purpose};
@@ -7,7 +18,11 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-/// Rate limiting state
+/// Rate limiting implementation using a sliding window approach.
+///
+/// Tracks request timestamps per IP address and automatically cleans up old entries.
+/// Uses a HashMap to store request times, making it suitable for moderate traffic loads.
+/// For high-traffic production use, consider Redis-based rate limiting.
 #[derive(Debug)]
 pub struct RateLimiter {
     requests: Arc<Mutex<HashMap<String, Vec<Instant>>>>,
@@ -16,7 +31,16 @@ pub struct RateLimiter {
 }
 
 impl RateLimiter {
-    /// Creates a new rate limiter with specified limits
+    /// Creates a new rate limiter with specified limits.
+    ///
+    /// # Parameters
+    /// - `max_requests`: Maximum number of requests allowed per IP in the time window
+    /// - `window_seconds`: Time window duration in seconds
+    ///
+    /// # Example
+    /// ```
+    /// let limiter = RateLimiter::new(10, 60); // 10 requests per minute
+    /// ```
     pub fn new(max_requests: usize, window_seconds: u64) -> Self {
         Self {
             requests: Arc::new(Mutex::new(HashMap::new())),
@@ -25,7 +49,17 @@ impl RateLimiter {
         }
     }
 
-    /// Checks if a request from the given IP should be allowed
+    /// Checks if a request from the given IP should be allowed.
+    ///
+    /// Implements a sliding window rate limiting algorithm. Automatically cleans up
+    /// expired entries to prevent memory leaks. Returns true if the request should
+    /// be allowed, false if the rate limit is exceeded.
+    ///
+    /// # Parameters
+    /// - `ip`: The client IP address as a string
+    ///
+    /// # Returns
+    /// `true` if the request is within rate limits, `false` if it should be rejected
     pub fn check_rate_limit(&self, ip: &str) -> bool {
         let mut requests = self.requests.lock().unwrap();
         let now = Instant::now();
@@ -48,7 +82,20 @@ impl RateLimiter {
     }
 }
 
-/// Validates file size limits
+/// Validates file size against configured limits to prevent resource exhaustion.
+///
+/// Ensures uploaded files are within acceptable size bounds. Rejects empty files
+/// and files exceeding the maximum size limit defined in server constants.
+///
+/// # Parameters
+/// - `size`: The file size in bytes
+///
+/// # Returns
+/// `Ok(())` if the file size is valid, or an Actix error for invalid sizes
+///
+/// # Errors
+/// - `ErrorBadRequest` for empty files (0 bytes)
+/// - `ErrorPayloadTooLarge` for files exceeding the maximum size limit
 pub fn validate_file_size(size: usize) -> ActixResult<()> {
     if size == 0 {
         return Err(actix_web::error::ErrorBadRequest("Empty files are not allowed"));
@@ -64,7 +111,21 @@ pub fn validate_file_size(size: usize) -> ActixResult<()> {
     Ok(())
 }
 
-/// Validates encryption key format and size
+/// Validates encryption key format and size for AES-256 compatibility.
+///
+/// Decodes a base64-encoded encryption key and validates it meets AES-256 requirements.
+/// Provides user-friendly error messages for common key format issues.
+///
+/// # Parameters
+/// - `key_b64`: Base64-encoded encryption key string
+///
+/// # Returns
+/// The decoded 32-byte key as `Vec<u8>` on success, or a descriptive error message
+///
+/// # Errors
+/// - Invalid base64 encoding
+/// - Wrong key size (must be exactly 32 bytes for AES-256)
+/// - Empty key string
 pub fn validate_encryption_key(key_b64: &str) -> Result<Vec<u8>, String> {
     if key_b64.is_empty() {
         return Err("Encryption key cannot be empty".to_string());
@@ -84,7 +145,22 @@ pub fn validate_encryption_key(key_b64: &str) -> Result<Vec<u8>, String> {
     Ok(key)
 }
 
-/// Validates password strength (basic checks)
+/// Validates password strength with basic security checks.
+///
+/// Performs fundamental password validation including length requirements and
+/// character variety recommendations. Does not enforce strict complexity rules
+/// to maintain usability, but provides warnings for weak passwords.
+///
+/// # Parameters
+/// - `password`: The password string to validate
+///
+/// # Returns
+/// `Ok(())` if the password meets basic requirements, or an error message
+///
+/// # Security Notes
+/// - Minimum 8 characters required
+/// - Maximum 1024 characters to prevent DoS
+/// - Warns about lack of character variety but doesn't reject
 pub fn validate_password(password: &str) -> Result<(), String> {
     if password.is_empty() {
         return Err("Password cannot be empty".to_string());

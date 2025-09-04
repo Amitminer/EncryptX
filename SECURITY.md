@@ -83,25 +83,12 @@ We take security vulnerabilities seriously. If you discover a security issue:
 - Denial of service vulnerabilities
 
 ### How to Report
-1. **Email**: Send details to [security@encryptx.example.com] (replace with actual email)
-2. **Include**: 
+1. **GitHub Issue**: Create a new issue in our [GitHub Repository URL](https://github.com/Amitminer/EncryptX/issues).
+2. **Include**: Provide the following information in the issue description:
    - Detailed description of the vulnerability
    - Steps to reproduce the issue
    - Potential impact assessment
    - Suggested fix (if available)
-
-### What to Expect
-- **Acknowledgment**: Within 48 hours
-- **Initial Assessment**: Within 1 week
-- **Regular Updates**: Every week until resolved
-- **Resolution**: Security fixes will be prioritized
-
-### Responsible Disclosure
-- Please allow reasonable time for fixes before public disclosure
-- We will credit security researchers who report vulnerabilities responsibly
-- We may provide a security advisory for significant vulnerabilities
-
-## Security Audit History
 
 | Date | Auditor | Scope | Status |
 |------|---------|-------|--------|
@@ -180,7 +167,7 @@ In case of a security incident:
 
 ---
 
-**Last Updated**: January 2025
-**Version**: 1.0
+**Last Updated**: September 2025
+**Version**: 1.6
 
 This security policy is reviewed and updated regularly to reflect current security practices and threat landscape.

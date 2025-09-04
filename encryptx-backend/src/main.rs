@@ -19,7 +19,6 @@ use actix_cors::Cors;
 use actix_web::http::header::{CONTENT_DISPOSITION, CONTENT_TYPE};
 use actix_web::web::Bytes;
 use actix_web::{App, HttpRequest, HttpResponse, HttpServer, Responder, get, post, web};
-use clap::{Parser, Subcommand};
 use std::sync::Arc;
 pub mod cli;
 pub mod constants;
@@ -31,42 +30,6 @@ use constants::server::*;
 use middleware::SecurityHeaders;
 use service::*;
 use validation::*;
-
-/// EncryptX Backend CLI
-#[derive(Parser)]
-#[command(author, version, about, long_about = None)]
-struct Cli {
-    #[command(subcommand)]
-    command: Option<Commands>,
-}
-
-#[derive(Subcommand)]
-enum Commands {
-    /// Encrypt a file
-    Encrypt {
-        /// Path to the file to encrypt
-        #[arg(long)]
-        filename: String,
-        /// Password to use for encryption (optional)
-        #[arg(long)]
-        pass: Option<String>,
-        /// Key to use for encryption (base64, optional; if not provided, random key is generated)
-        #[arg(long)]
-        key: Option<String>,
-    },
-    /// Decrypt a file
-    Decrypt {
-        /// Path to the file to decrypt
-        #[arg(long)]
-        filename: String,
-        /// Password to use for decryption (optional)
-        #[arg(long)]
-        pass: Option<String>,
-        /// Key to use for decryption (base64, optional)
-        #[arg(long)]
-        key: Option<String>,
-    },
-}
 
 /// File encryption endpoint supporting both key-based and password-based modes.
 /// Mode is determined by presence of x-password header.

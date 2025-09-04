@@ -4,9 +4,7 @@ import { FeaturesSection } from "./components/sections/features-section"
 import { HeroSection } from "./components/sections/hero-section"
 import { HowItWorksSection } from "./components/sections/how-it-works-section"
 
-/**
- * Renders the main landing page layout by composing the hero, features, how-it-works, call-to-action, and footer sections.
- */
+/** Main landing page with hero, features, and CTA sections */
 export default function HomePage() {
   return (
     <div>

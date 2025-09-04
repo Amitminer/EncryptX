@@ -28,7 +28,7 @@ COPY . .
 RUN pnpm build
 
 # Production stage with minimal Alpine image
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 
 # Install dumb-init for proper signal handling
 RUN apk add --no-cache dumb-init

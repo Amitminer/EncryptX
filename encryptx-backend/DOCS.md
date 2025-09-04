@@ -131,9 +131,19 @@ The decryption process automatically detects the encryption mode:
 
 ### Key-Based Encryption
 
-**Auto-generate key (key will be embedded in file):**
+**Auto-generate key (key will be returned in response header):**
 ```bash
 curl -X POST http://localhost:8080/encrypt \
+  -H "x-orig-filename: document.docx" \
+  --data-binary @document.docx \
+  -o encrypted.xd -D headers.txt
+# Check headers.txt for x-generated-key header
+```
+
+**Encrypt with provided key:**
+```bash
+curl -X POST http://localhost:8080/encrypt \
+  -H "x-enc-key: YOUR_BASE64_KEY_HERE" \
   -H "x-orig-filename: document.docx" \
   --data-binary @document.docx \
   -o encrypted.xd
@@ -176,6 +186,37 @@ curl -X POST http://localhost:8080/decrypt \
 ### Health Check
 ```bash
 curl -X GET http://localhost:8080/health
+```
+
+---
+
+## CLI Usage Examples
+
+### Encryption
+```bash
+# Encrypt with password
+cargo run encrypt --file secret.txt --password mysecretpassword
+
+# Encrypt with custom key
+cargo run encrypt --file document.pdf --key YOUR_BASE64_KEY
+
+# Encrypt with auto-generated key (key will be printed)
+cargo run encrypt --file data.zip
+
+# Specify output file and force overwrite
+cargo run encrypt --file input.txt --password secret --output encrypted.xd --force
+```
+
+### Decryption
+```bash
+# Decrypt with password
+cargo run decrypt --file secret.xd --password mysecretpassword
+
+# Decrypt with key
+cargo run decrypt --file document.xd --key YOUR_BASE64_KEY
+
+# Specify output file and force overwrite
+cargo run decrypt --file encrypted.xd --password secret --output decrypted.txt --force
 ```
 
 ---

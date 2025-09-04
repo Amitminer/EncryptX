@@ -117,15 +117,7 @@ Health check endpoint for monitoring.
 }
 ```
 
-#### `GET /generate-key`
-Generate a cryptographically secure 256-bit key.
 
-**Response:**
-```json
-{
-  \"key\": \"base64-encoded-key-here\"
-}
-```
 
 ---
 
@@ -140,7 +132,7 @@ cargo run encrypt --file secret.txt --password mysecretpassword
 # Encrypt with custom key
 cargo run encrypt --file document.pdf --key YOUR_BASE64_KEY
 
-# Encrypt with auto-generated key
+# Encrypt with auto-generated key (key will be printed - save it!)
 cargo run encrypt --file data.zip
 
 # Specify output file
@@ -164,13 +156,6 @@ cargo run decrypt --file encrypted.xd --password secret --output decrypted.txt
 
 # Force overwrite existing files
 cargo run decrypt --file encrypted.xd --password secret --force
-```
-
-### Key Generation
-
-```bash
-# Generate a secure 256-bit key
-cargo run generate-key
 ```
 
 ---

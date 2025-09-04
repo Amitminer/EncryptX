@@ -1,18 +1,11 @@
-/**
- * PDF Generation Utilities for EncryptX
- *
- * Provides functions to generate professional, branded PDF backups of encryption keys
- * with modern purple theming, better contrast, and clean typography.
- */
+/** PDF generation utilities for encryption key backups with styling */
 
 import { convertToHumanReadable } from './crypto'
 
 // Re-export for convenience
 export { convertToHumanReadable }
 
-/**
- * PDF Generation Options
- */
+/** Options for PDF generation */
 export interface PDFGenerationOptions {
 	generatedKeys: { [fileName: string]: string }
 	companyName?: string
@@ -21,9 +14,7 @@ export interface PDFGenerationOptions {
 	customInstructions?: string[]
 }
 
-/**
- * Professional color palette - High contrast purple theme
- */
+/** Color palette for PDF styling */
 const colors = {
 	primary: [88, 28, 135] as [number, number, number],      // Purple-800 (darker)
 	primaryLight: [139, 92, 246] as [number, number, number], // Purple-500
@@ -39,9 +30,7 @@ const colors = {
 	warningBg: [255, 251, 235] as [number, number, number],  // Amber-50
 }
 
-/**
- * Draw a circular EncryptX logo
- */
+/** Draws circular EncryptX logo */
 const drawEncryptXLogo = (doc: import('jspdf').jsPDF, x: number, y: number, radius: number = 8) => {
 	// Draw circle background
 	doc.setFillColor(255, 255, 255) // White circle
@@ -63,9 +52,7 @@ const drawEncryptXLogo = (doc: import('jspdf').jsPDF, x: number, y: number, radi
 	doc.text(text, x - textWidth / 2, y + radius * 0.2)
 }
 
-/**
- * Draw a professional card with shadow
- */
+/** Draws card with shadow effect */
 const drawCard = (doc: import('jspdf').jsPDF, x: number, y: number, width: number, height: number) => {
 	// Shadow
 	doc.setFillColor(200, 200, 200)
@@ -81,9 +68,7 @@ const drawCard = (doc: import('jspdf').jsPDF, x: number, y: number, width: numbe
 	doc.rect(x, y, width, height, 'S')
 }
 
-/**
- * Generate a professional branded PDF backup of encryption keys
- */
+/** Generates PDF backup of encryption keys */
 export const generateKeysPDF = async (options: PDFGenerationOptions): Promise<void> => {
 	const {
 		generatedKeys,
@@ -409,9 +394,7 @@ export const generateKeysPDF = async (options: PDFGenerationOptions): Promise<vo
 	}
 }
 
-/**
- * Generate a simple custom PDF
- */
+/** Generates simple custom PDF with title and content */
 export const generateCustomPDF = async (
 	title: string,
 	content: string[],

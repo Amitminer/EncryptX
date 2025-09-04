@@ -1,6 +1,28 @@
+//! Command-line interface for EncryptX Backend
 //!
-//! This is EncryptX, but in CLI form for CLI users.
+//! This module provides a comprehensive CLI for file encryption and decryption operations.
+//! It supports both password-based and key-based encryption, with automatic compression
+//! and user-friendly error handling.
 //!
+//! # Features
+//! - File encryption with password or key-based methods
+//! - Automatic compression using zstd before encryption
+//! - Secure random key generation with base64 output
+//! - Original filename preservation in encrypted files
+//! - Comprehensive input validation and error handling
+//! - Force overwrite protection for output files
+//!
+//! # Usage Examples
+//! ```bash
+//! # Encrypt with password
+//! encryptx encrypt --file secret.txt --password mysecret
+//!
+//! # Encrypt with auto-generated key
+//! encryptx encrypt --file document.pdf
+//!
+//! # Decrypt with password
+//! encryptx decrypt --file secret.xd --password mysecret
+//! ```
 use crate::constants::{compression::*, crypto::*, format::*};
 use crate::crypto;
 use base64::{Engine, engine::general_purpose};
@@ -72,7 +94,11 @@ pub enum Commands {
     },
 }
 
-/// Custom error type for CLI operations
+/// Comprehensive error type for CLI operations with user-friendly messages.
+///
+/// Provides structured error handling for all CLI operations including file I/O,
+/// cryptographic operations, and input validation. Errors are designed to give
+/// users clear guidance on what went wrong and how to fix it.
 #[derive(Debug)]
 pub enum CliError {
     Io(io::Error),
@@ -108,7 +134,22 @@ impl From<CliError> for io::Error {
     }
 }
 
-/// Validates that a file exists and is readable
+/// Validates that a file exists and is readable before processing.
+///
+/// Performs comprehensive validation of input files including existence checks,
+/// file type verification, and read permission testing. Provides specific error
+/// messages to help users identify and resolve file access issues.
+///
+/// # Parameters
+/// - `file_path`: Path to the file to validate
+///
+/// # Returns
+/// `Ok(())` if the file is valid and readable, or a `CliError` describing the issue
+///
+/// # Errors
+/// - File does not exist
+/// - Path points to a directory instead of a file
+/// - File exists but is not readable (permission issues)
 fn validate_input_file(file_path: &str) -> Result<(), CliError> {
     let path = Path::new(file_path);
     if !path.exists() {
@@ -128,7 +169,23 @@ fn validate_input_file(file_path: &str) -> Result<(), CliError> {
     }
 }
 
-/// Checks if output file exists and handles overwrite logic
+/// Checks if output file exists and handles overwrite logic safely.
+///
+/// Implements safe file overwrite protection by checking for existing files
+/// and requiring explicit `--force` flag for overwriting. Also validates
+/// that the parent directory exists and is writable.
+///
+/// # Parameters
+/// - `output_path`: Path where the output file will be written
+/// - `force`: Whether to allow overwriting existing files
+///
+/// # Returns
+/// `Ok(())` if the output path is safe to use, or a `CliError` describing the issue
+///
+/// # Errors
+/// - Output file exists and `--force` not specified
+/// - Cannot write to existing file (permission issues)
+/// - Parent directory does not exist
 fn check_output_file(output_path: &str, force: bool) -> Result<(), CliError> {
     let path = Path::new(output_path);
     if path.exists() {
@@ -160,7 +217,21 @@ fn check_output_file(output_path: &str, force: bool) -> Result<(), CliError> {
     }
 }
 
-/// Validates and decodes a base64 key
+/// Validates and decodes a base64-encoded encryption key for AES-256.
+///
+/// Ensures the provided key is valid base64 and exactly 32 bytes (256 bits)
+/// as required for AES-256 encryption. Provides clear error messages for
+/// common key format issues.
+///
+/// # Parameters
+/// - `key_b64`: Base64-encoded encryption key string
+///
+/// # Returns
+/// The decoded 32-byte key as `Vec<u8>` on success
+///
+/// # Errors
+/// - Invalid base64 encoding
+/// - Wrong key size (must be exactly 32 bytes)
 fn validate_key(key_b64: &str) -> Result<Vec<u8>, CliError> {
     let key = general_purpose::STANDARD
         .decode(key_b64)
@@ -177,7 +248,21 @@ fn validate_key(key_b64: &str) -> Result<Vec<u8>, CliError> {
     Ok(key)
 }
 
-/// Generates a default output filename for encryption
+/// Generates a default output filename for encryption by appending .xd extension.
+///
+/// Creates a sensible default output filename by taking the input file's stem
+/// (filename without extension) and appending the .xd extension used by EncryptX.
+///
+/// # Parameters
+/// - `input_file`: Path to the input file being encrypted
+///
+/// # Returns
+/// A filename with .xd extension (e.g., "document.pdf" → "document.xd")
+///
+/// # Examples
+/// - `secret.txt` → `secret.xd`
+/// - `/path/to/document.pdf` → `document.xd`
+/// - `file` → `file.xd`
 fn generate_encrypt_output(input_file: &str) -> String {
     let path = Path::new(input_file);
     let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("file");

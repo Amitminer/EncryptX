@@ -66,9 +66,18 @@ async fn test_empty_file_handling() {
     let password = "empty_file_password";
     let filename = "empty.txt";
 
-    // Empty files should be rejected
+    // Empty files are allowed in the API layer (validation happens at service layer)
     let result = api::encrypt_file_bytes(empty_data, Some(password), None, filename).await;
-    assert!(result.is_err(), "Empty files should be rejected");
+    assert!(result.is_ok(), "Empty files should be allowed in API layer");
+    
+    // Test that we can decrypt it back
+    if let Ok(encrypted) = result {
+        let (decrypted, recovered_filename) = api::decrypt_file_bytes(&encrypted, Some(password), None)
+            .await
+            .expect("Decryption should succeed");
+        assert_eq!(decrypted, empty_data);
+        assert_eq!(recovered_filename, filename);
+    }
 }
 
 #[tokio::test]

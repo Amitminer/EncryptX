@@ -59,3 +59,4 @@ next-env.d.ts
 **/temp/
 **/Cargo.lock
 qodo.md
+AGENTS.md

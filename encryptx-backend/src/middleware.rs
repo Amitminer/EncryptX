@@ -1,5 +1,19 @@
-/// Security middleware for EncryptX backend
-/// Provides security headers and request validation
+//! Security middleware for EncryptX backend
+//!
+//! This module implements security headers middleware that automatically adds
+//! essential security headers to all HTTP responses. These headers help protect
+//! against common web vulnerabilities and improve the overall security posture.
+//!
+//! # Security Headers Applied
+//! - `X-Content-Type-Options: nosniff` - Prevents MIME type sniffing
+//! - `X-Frame-Options: DENY` - Prevents clickjacking attacks
+//! - `X-XSS-Protection: 1; mode=block` - Enables XSS filtering
+//! - `Referrer-Policy: strict-origin-when-cross-origin` - Controls referrer information
+//! - `Content-Security-Policy: default-src 'none'` - Restrictive CSP for API
+//! - `Strict-Transport-Security` - HTTPS enforcement (when using HTTPS)
+//!
+//! # Usage
+//! The middleware is automatically applied to all routes when added to the Actix Web app.
 use actix_web::{
     Error,
     dev::{Service, ServiceRequest, ServiceResponse, Transform, forward_ready},
@@ -10,7 +24,11 @@ use std::{
     rc::Rc,
 };
 
-/// Security headers middleware
+/// Security headers middleware implementation.
+///
+/// This struct implements the Actix Web `Transform` trait to automatically add
+/// security headers to all HTTP responses. It's designed to be lightweight and
+/// applied globally to all routes.
 pub struct SecurityHeaders;
 
 impl<S, B> Transform<S, ServiceRequest> for SecurityHeaders
@@ -32,6 +50,10 @@ where
     }
 }
 
+/// The actual middleware service that processes requests and adds security headers.
+///
+/// This struct wraps the next service in the middleware chain and adds security
+/// headers to responses before returning them to the client.
 pub struct SecurityHeadersMiddleware<S> {
     service: Rc<S>,
 }

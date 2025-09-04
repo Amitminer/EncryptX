@@ -22,6 +22,28 @@ EncryptX provides military-grade AES-256-GCM encryption for any file type, featu
 
 ---
 
+## 📸 Screenshots
+
+### 🏠 Home Page
+![EncryptX Homepage](assets/home.png)
+*Modern interface with drag & drop file upload*
+
+### 🔐 Encryption Process
+![File Encryption](assets/encryption.png)
+*Secure file encryption with password or key-based options*
+
+![Encryption Success](assets/encryption-success.png)
+*Successful encryption with download ready*
+
+### 🔓 Decryption Process
+![File Decryption](assets/decryption.png)
+*Easy file decryption with original filename preservation*
+
+![Decryption Success](assets/decryption-success.png)
+*Successful decryption with original file restored*
+
+---
+
 ## 🚀 Getting Started
 
 ### Prerequisites
@@ -173,37 +195,36 @@ docker run -p 3000:3000 encryptx-frontend
 
 ### Command Line Interface
 
-#### 📦 **Pre-built Binaries** (Recommended)
+#### 📦 **Pre-built Binaries** (Coming Soon)
 
-Download the latest release for your platform:
-- **Windows**: [Download MSI Installer](https://github.com/Amitminer/EncryptX/releases/latest)
-- **Linux x64**: [Download Tarball](https://github.com/Amitminer/EncryptX/releases/latest)
-- **macOS ARM64**: [Download Tarball](https://github.com/Amitminer/EncryptX/releases/latest)
-
-```bash
-# After installation, use the CLI:
-encryptx encrypt --file secret.txt --password mysecretpassword
-encryptx decrypt --file secret.xd --password mysecretpassword
-encryptx generate-key
-```
+Pre-built binaries will be available in future releases. For now, please build from source.
 
 #### 🛠️ **Build from Source**
 
 ```bash
+# Navigate to backend directory
+cd encryptx-backend
+
 # Encrypt with password
 cargo run encrypt --file secret.txt --password mysecretpassword
 
-# Encrypt with auto-generated key
+# Encrypt with auto-generated key (key will be printed - save it!)
 cargo run encrypt --file document.pdf
 
 # Encrypt with custom key
 cargo run encrypt --file data.zip --key YOUR_BASE64_KEY
+
+# Specify output file and force overwrite
+cargo run encrypt --file input.txt --password secret --output encrypted.xd --force
 
 # Decrypt with password
 cargo run decrypt --file secret.xd --password mysecretpassword
 
 # Decrypt with key
 cargo run decrypt --file document.xd --key YOUR_BASE64_KEY
+
+# Specify output file and force overwrite
+cargo run decrypt --file encrypted.xd --password secret --output decrypted.txt --force
 ```
 
 ---
@@ -217,7 +238,6 @@ cargo run decrypt --file document.xd --key YOUR_BASE64_KEY
 | `POST` | `/encrypt` | Encrypt a file |
 | `POST` | `/decrypt` | Decrypt a file |
 | `GET` | `/health` | Health check |
-| `GET` | `/generate-key` | Generate a secure key |
 
 ### Headers
 
@@ -325,7 +345,7 @@ For detailed security information, see [SECURITY.md](SECURITY.md).
    # Backend
    export ALLOWED_ORIGIN=https://yourdomain.com
    export RUST_LOG=warn
-   
+
    # Frontend
    export NEXT_PUBLIC_BACKEND_URL=https://api.yourdomain.com
    ```
@@ -335,7 +355,7 @@ For detailed security information, see [SECURITY.md](SECURITY.md).
    # Backend
    cd encryptx-backend
    cargo build --release
-   
+
    # Frontend
    cd encryptx-frontend
    npm run build
@@ -464,9 +484,6 @@ This project is licensed under the [MIT License](LICENSE).
 
 - **Rust Community** for excellent cryptographic libraries
 - **Next.js Team** for the amazing React framework
-- **Security Researchers** who helped identify vulnerabilities
-- **Contributors** who made this project better
-
 ---
 
 <div align="center">

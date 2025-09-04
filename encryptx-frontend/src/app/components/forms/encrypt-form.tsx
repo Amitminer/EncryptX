@@ -17,20 +17,11 @@ import { EncryptFileStatus, EncryptButtonProps, PasswordInputProps, FileListItem
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080"
 const ENCRYPTION_ENDPOINT = "/encrypt"
 const ENCRYPTED_FILE_EXTENSION = ".xd"
-const KEY_SIZE_BYTES = 32
-
-const generateSecureKey = (): string => {
-	const array = new Uint8Array(KEY_SIZE_BYTES)
-	window.crypto.getRandomValues(array)
-	return btoa(String.fromCharCode(...array))
-}
 
 const getFileNameWithoutExtension = (fileName: string): string => {
 	const lastDotIndex = fileName.lastIndexOf(".")
 	return lastDotIndex === -1 ? fileName : fileName.substring(0, lastDotIndex)
 }
-
-
 
 // Subcomponents
 const AnimatedBackground = () => (
@@ -41,104 +32,6 @@ const AnimatedBackground = () => (
 		<div className="absolute bottom-40 left-1/3 w-1 h-1 bg-pink-300 rounded-full animate-ping opacity-30" />
 	</div>
 )
-
-const GeneratedKeysDisplay = ({ generatedKeys, onCopyKey, onGeneratePDF, showHumanReadable, onToggleFormat }: {
-	generatedKeys: { [fileName: string]: string },
-	onCopyKey: (key: string, fileName: string, format?: string) => void,
-	onGeneratePDF: () => void,
-	showHumanReadable: { [fileName: string]: boolean },
-	onToggleFormat: (fileName: string) => void
-}) => {
-	if (Object.keys(generatedKeys).length === 0) return null
-
-	return (
-		<div className="mt-6 sm:mt-8 p-4 sm:p-6 bg-gradient-to-br from-amber-900/20 to-orange-900/20 border border-amber-400/30 rounded-2xl backdrop-blur-sm">
-			{/* Mobile-first header layout */}
-			<div className="mb-4">
-				<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-					<div className="flex items-center gap-2 sm:gap-3">
-						<AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-amber-400 animate-pulse flex-shrink-0" />
-						<h3 className="text-base sm:text-xl font-bold text-amber-400 leading-tight">
-							⚠️ IMPORTANT: Save Your Encryption Keys!
-						</h3>
-					</div>
-
-					<Button
-						onClick={onGeneratePDF}
-						className="bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2 w-full sm:w-auto justify-center sm:flex-shrink-0 text-sm sm:text-base"
-					>
-						<Download className="w-4 h-4" />
-						PDF Backup
-					</Button>
-				</div>
-			</div>
-
-			<p className="text-amber-200 mb-4 sm:mb-6 leading-relaxed text-sm sm:text-base">
-				Your files were encrypted with auto-generated keys. <strong>You MUST save these keys to decrypt your files later!</strong>
-				These keys are not stored anywhere and cannot be recovered if lost.
-			</p>
-
-			<div className="space-y-3 sm:space-y-4">
-				{Object.entries(generatedKeys).map(([fileName, key]) => {
-					const isHumanReadable = showHumanReadable[fileName] !== false // Default to true (human-readable)
-					const displayKey = isHumanReadable ? convertToHumanReadable(key) : key
-
-					return (
-						<div key={fileName} className="bg-zinc-900/60 border border-amber-400/20 rounded-xl p-3 sm:p-4">
-							{/* Mobile-optimized file header */}
-							<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 mb-3">
-								<span className="text-amber-300 font-medium text-sm flex items-center">
-									<File className="inline w-4 h-4 mr-2 flex-shrink-0" />
-									<span className="truncate">{fileName}</span>
-								</span>
-
-								<div className="flex items-center gap-2 self-start sm:self-auto">
-									<span className="text-xs text-gray-400 flex-shrink-0">
-										{isHumanReadable ? 'Words Format' : 'Base64 Format'}
-									</span>
-									<Button
-										onClick={() => onToggleFormat(fileName)}
-										className="bg-purple-600 hover:bg-purple-700 text-white px-2 sm:px-3 py-1 rounded text-xs transition-colors duration-200 flex-shrink-0"
-									>
-										{isHumanReadable ? 'Show Base64' : 'Show Words'}
-									</Button>
-								</div>
-							</div>
-
-							{/* Mobile-optimized key display */}
-							<div className="flex flex-col sm:flex-row sm:items-center gap-3">
-								<div className="flex-1 bg-zinc-800/80 border border-zinc-600 rounded-lg p-2 sm:p-3 font-mono text-xs sm:text-sm text-white break-all min-h-[3rem] sm:min-h-0">
-									{displayKey}
-								</div>
-								<Button
-									onClick={() => onCopyKey(displayKey, fileName, isHumanReadable ? 'human-readable' : 'base64')}
-									className="bg-amber-600 hover:bg-amber-700 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2 justify-center w-full sm:w-auto sm:flex-shrink-0 text-sm"
-									title={isHumanReadable ? "Copy human-readable key" : "Copy Base64 key"}
-								>
-									<Copy className="w-4 h-4" />
-									{isHumanReadable ? 'Copy Words' : 'Copy Key'}
-								</Button>
-							</div>
-
-							{isHumanReadable && (
-								<div className="mt-2 p-2 bg-blue-900/20 border border-blue-400/30 rounded text-xs text-blue-300">
-									<strong>💡 Tip:</strong> This word format is easier to remember! The copy button copies the human-readable version. Use &ldquo;Show Base64&rdquo; to copy the technical key for decryption.
-								</div>
-							)}
-						</div>
-					)
-				})}
-			</div>
-
-			<div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-red-900/20 border border-red-400/30 rounded-xl">
-				<p className="text-red-300 text-xs sm:text-sm leading-relaxed">
-					<strong>⚠️ Security Warning:</strong> Store these keys in a secure location (password manager, encrypted file, etc.).
-					Without these keys, your encrypted files cannot be decrypted!
-				</p>
-			</div>
-		</div>
-	)
-}
 
 const HeroIcon = () => (
 	<div className="flex justify-center mb-8 sm:mb-10 md:mb-12 relative">
@@ -276,11 +169,111 @@ const EncryptButton = ({ isDisabled, isProcessing, fileCount, onClick }: Encrypt
 	</div>
 )
 
-/**
- * Renders a form interface for encrypting files with optional password protection.
- *
- * Users can select or drag-and-drop multiple files, optionally enter a password, and initiate encryption. Each file is sent to a backend service for encryption and is automatically downloaded upon completion. The UI displays encryption status for each file and provides animated visual feedback throughout the process.
- */
+const GeneratedKeysDisplay = ({
+	generatedKeys,
+	onCopyKey,
+	onGeneratePDF,
+	showHumanReadable,
+	onToggleFormat
+}: {
+	generatedKeys: { [fileName: string]: string },
+	onCopyKey: (key: string, fileName: string, format?: string) => void,
+	onGeneratePDF: () => void,
+	showHumanReadable: { [fileName: string]: boolean },
+	onToggleFormat: (fileName: string) => void
+}) => {
+	if (Object.keys(generatedKeys).length === 0) return null
+
+	return (
+		<div className="mt-6 sm:mt-8 p-4 sm:p-6 bg-gradient-to-br from-amber-900/20 to-orange-900/20 border border-amber-400/30 rounded-2xl backdrop-blur-sm">
+			{/* Mobile-first header layout */}
+			<div className="mb-4">
+				<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+					<div className="flex items-center gap-2 sm:gap-3">
+						<AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-amber-400 animate-pulse flex-shrink-0" />
+						<h3 className="text-base sm:text-xl font-bold text-amber-400 leading-tight">
+							⚠️ IMPORTANT: Save Your Encryption Keys!
+						</h3>
+					</div>
+
+					<Button
+						onClick={onGeneratePDF}
+						className="bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2 w-full sm:w-auto justify-center sm:flex-shrink-0 text-sm sm:text-base"
+					>
+						<Download className="w-4 h-4" />
+						PDF Backup
+					</Button>
+				</div>
+			</div>
+
+			<p className="text-amber-200 mb-4 sm:mb-6 leading-relaxed text-sm sm:text-base">
+				Your files were encrypted with auto-generated keys. <strong>You MUST save these keys to decrypt your files later!</strong>
+				These keys are not stored anywhere and cannot be recovered if lost.
+			</p>
+
+			<div className="space-y-3 sm:space-y-4">
+				{Object.entries(generatedKeys).map(([fileName, key]) => {
+					const isHumanReadable = showHumanReadable[fileName] !== false // Default to true (human-readable)
+					const displayKey = isHumanReadable ? convertToHumanReadable(key) : key
+
+					return (
+						<div key={fileName} className="bg-zinc-900/60 border border-amber-400/20 rounded-xl p-3 sm:p-4">
+							{/* Mobile-optimized file header */}
+							<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 mb-3">
+								<span className="text-amber-300 font-medium text-sm flex items-center">
+									<File className="inline w-4 h-4 mr-2 flex-shrink-0" />
+									<span className="truncate">{fileName}</span>
+								</span>
+
+								<div className="flex items-center gap-2 self-start sm:self-auto">
+									<span className="text-xs text-gray-400 flex-shrink-0">
+										{isHumanReadable ? 'Words Format' : 'Base64 Format'}
+									</span>
+									<Button
+										onClick={() => onToggleFormat(fileName)}
+										className="bg-purple-600 hover:bg-purple-700 text-white px-2 sm:px-3 py-1 rounded text-xs transition-colors duration-200 flex-shrink-0"
+									>
+										{isHumanReadable ? 'Show Base64' : 'Show Words'}
+									</Button>
+								</div>
+							</div>
+
+							{/* Mobile-optimized key display */}
+							<div className="flex flex-col sm:flex-row sm:items-center gap-3">
+								<div className="flex-1 bg-zinc-800/80 border border-zinc-600 rounded-lg p-2 sm:p-3 font-mono text-xs sm:text-sm text-white break-all min-h-[3rem] sm:min-h-0">
+									{displayKey}
+								</div>
+								<Button
+									onClick={() => onCopyKey(displayKey, fileName, isHumanReadable ? 'human-readable' : 'base64')}
+									className="bg-amber-600 hover:bg-amber-700 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2 justify-center w-full sm:w-auto sm:flex-shrink-0 text-sm"
+									title={isHumanReadable ? "Copy human-readable key" : "Copy Base64 key"}
+								>
+									<Copy className="w-4 h-4" />
+									{isHumanReadable ? 'Copy Words' : 'Copy Key'}
+								</Button>
+							</div>
+
+							{isHumanReadable && (
+								<div className="mt-2 p-2 bg-blue-900/20 border border-blue-400/30 rounded text-xs text-blue-300">
+									<strong>💡 Tip:</strong> This word format is easier to remember! The copy button copies the human-readable version. Use &ldquo;Show Base64&rdquo; to copy the technical key for decryption.
+								</div>
+							)}
+						</div>
+					)
+				})}
+			</div>
+
+			<div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-red-900/20 border border-red-400/30 rounded-xl">
+				<p className="text-red-300 text-xs sm:text-sm leading-relaxed">
+					<strong>⚠️ Security Warning:</strong> Store these keys in a secure location (password manager, encrypted file, etc.).
+					Without these keys, your encrypted files cannot be decrypted!
+				</p>
+			</div>
+		</div>
+	)
+}
+
+/** File encryption form with drag-and-drop, password input, and progress tracking */
 export function EncryptForm() {
 	const [files, setFiles] = useState<File[]>([])
 	const [password, setPassword] = useState("")
@@ -425,50 +418,50 @@ export function EncryptForm() {
 		})
 	}, [])
 
-  const handleCopyKey = useCallback(async (key: string, fileName: string, format: string = 'base64') => {
-    try {
-      // Modern clipboard API
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(key)
-        const formatText = format === 'human-readable' ? 'human-readable' : 'Base64'
-        toast.success(`🎉 ${formatText} key copied for ${fileName}!`, {
-          description: `${formatText} encryption key copied to clipboard`
-        })
-        return
-      }
-      
-      // Fallback method
-      const textArea = document.createElement('textarea')
-      textArea.value = key
-      textArea.style.position = 'fixed'
-      textArea.style.left = '-999999px'
-      textArea.style.top = '-999999px'
-      document.body.appendChild(textArea)
-      textArea.focus()
-      textArea.select()
-      
-      const successful = document.execCommand('copy')
-      document.body.removeChild(textArea)
-      
-      if (successful) {
-        const formatText = format === 'human-readable' ? 'human-readable' : 'Base64'
-        toast.success(`🎉 ${formatText} key copied for ${fileName}!`, {
-          description: `${formatText} encryption key copied to clipboard`
-        })
-      } else {
-        throw new Error('Copy command failed')
-      }
-      
-    } catch (error) {
-      console.error('Copy failed:', error)
-      toast.error(`❌ Failed to copy key for ${fileName}`, {
-        description: 'Please copy the key manually from the display above'
-      })
-      
-      // Last resort - show the key in an alert
-      alert(`Copy failed! Here's your key for ${fileName}:\n\n${key}\n\nPlease copy this manually.`)
-    }
-  }, [])
+	const handleCopyKey = useCallback(async (key: string, fileName: string, format: string = 'base64') => {
+		try {
+			// Modern clipboard API
+			if (navigator.clipboard && window.isSecureContext) {
+				await navigator.clipboard.writeText(key)
+				const formatText = format === 'human-readable' ? 'human-readable' : 'Base64'
+				toast.success(`🎉 ${formatText} key copied for ${fileName}!`, {
+					description: `${formatText} encryption key copied to clipboard`
+				})
+				return
+			}
+
+			// Fallback method
+			const textArea = document.createElement('textarea')
+			textArea.value = key
+			textArea.style.position = 'fixed'
+			textArea.style.left = '-999999px'
+			textArea.style.top = '-999999px'
+			document.body.appendChild(textArea)
+			textArea.focus()
+			textArea.select()
+
+			const successful = document.execCommand('copy')
+			document.body.removeChild(textArea)
+
+			if (successful) {
+				const formatText = format === 'human-readable' ? 'human-readable' : 'Base64'
+				toast.success(`🎉 ${formatText} key copied for ${fileName}!`, {
+					description: `${formatText} encryption key copied to clipboard`
+				})
+			} else {
+				throw new Error('Copy command failed')
+			}
+
+		} catch (error) {
+			console.error('Copy failed:', error)
+			toast.error(`❌ Failed to copy key for ${fileName}`, {
+				description: 'Please copy the key manually from the display above'
+			})
+
+			// Last resort - show the key in an alert
+			alert(`Copy failed! Here's your key for ${fileName}:\\n\\n${key}\\n\\nPlease copy this manually.`)
+		}
+	}, [])
 
 	const handleEncrypt = useCallback(async () => {
 		if (!hasFiles) return
