@@ -108,6 +108,17 @@ npm run dev
 
 ### Available Scripts
 
+#### 🐳 **Docker Commands** (Simplest)
+
+```bash
+# Quick start with Docker
+git clone https://github.com/Amitminer/EncryptX.git
+cd EncryptX
+docker compose up --build
+```
+
+#### 📦 **NPM Scripts** (Development)
+
 The root `package.json` provides convenient scripts to manage both services:
 
 ```bash
