@@ -343,6 +343,38 @@ export function EncryptForm() {
 
 	const encryptSingleFile = useCallback(async (file: File): Promise<void> => {
 		return new Promise((resolve, reject) => {
+			// Client-side validation before sending to backend
+			if (password) {
+				// Validate password
+				if (password.length < 4) {
+					reject(new Error('Password must be at least 4 characters long'))
+					return
+				}
+				if (password.length > 1024) {
+					reject(new Error('Password is too long (maximum 1024 characters)'))
+					return
+				}
+			}
+
+			// Validate filename
+			if (file.name.length > 255) {
+				reject(new Error('Filename is too long (maximum 255 characters)'))
+				return
+			}
+
+			// Check for dangerous characters in filename
+			const dangerousChars = ['/', '\\', ':', '*', '?', '"', '<', '>', '|']
+			if (dangerousChars.some(char => file.name.includes(char))) {
+				reject(new Error('Filename contains invalid characters'))
+				return
+			}
+
+			// Check for directory traversal
+			if (file.name.includes('..')) {
+				reject(new Error('Filename cannot contain ".." sequences'))
+				return
+			}
+
 		const xhr = new XMLHttpRequest()
 		const url = `${BACKEND_URL}${ENCRYPTION_ENDPOINT}`
 
