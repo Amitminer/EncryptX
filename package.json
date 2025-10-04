@@ -1,6 +1,6 @@
 {
 	"name": "encryptx",
-	"version": "1.6.0",
+	"version": "1.6.1",
 	"description": "EncryptX - A file encryption service with frontend and backend",
 	"scripts": {
 		"dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
