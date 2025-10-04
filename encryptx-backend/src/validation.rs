@@ -254,11 +254,11 @@ pub fn validate_crypto_headers(req: &HttpRequest) -> CryptoHeadersResult {
 
     let key = if let Some(key_header) = req.headers().get("x-enc-key") {
         let key_b64 = key_header.to_str()
-            .map_err(|_| HttpResponse::BadRequest().body("Invalid key header encoding"))?;
+            .map_err(|_| HttpResponse::BadRequest().body("Invalid key header encoding - header contains non-UTF8 characters"))?;
         
         if !key_b64.is_empty() {
             Some(validate_encryption_key(key_b64)
-                .map_err(|e| HttpResponse::BadRequest().body(e))?)
+                .map_err(|e| HttpResponse::BadRequest().body(format!("Encryption key validation failed: {}", e)))?)
         } else {
             None
         }
@@ -281,7 +281,7 @@ pub fn validate_crypto_headers(req: &HttpRequest) -> CryptoHeadersResult {
     // Validate password if provided
     if let Some(ref pwd) = password {
         validate_password(pwd)
-            .map_err(|e| HttpResponse::BadRequest().body(e))?;
+            .map_err(|e| HttpResponse::BadRequest().body(format!("Password validation failed: {}", e)))?;
     }
 
     // Get and validate filename
@@ -291,7 +291,7 @@ pub fn validate_crypto_headers(req: &HttpRequest) -> CryptoHeadersResult {
         .unwrap_or("file.bin");
 
     let validated_filename = validate_filename(filename)
-        .map_err(|e| HttpResponse::BadRequest().body(e))?;
+        .map_err(|e| HttpResponse::BadRequest().body(format!("Filename validation failed: {}", e)))?;
 
     Ok((password, key, validated_filename))
 }

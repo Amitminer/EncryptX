@@ -324,7 +324,17 @@ impl FileEncryptionService {
 
         // Validate and extract headers
         let (password, key, filename) = validate_crypto_headers(req)
-            .map_err(|_| ServiceError::Validation("Invalid request headers".to_string()))?;
+            .map_err(|e| {
+                // Extract the error message from the HttpResponse
+                let error_msg = match e.status() {
+                    actix_web::http::StatusCode::BAD_REQUEST => {
+                        // Try to extract the body content for more specific error
+                        "Invalid request headers - check your password, encryption key, or filename format"
+                    },
+                    _ => "Invalid request headers"
+                };
+                ServiceError::Validation(error_msg.to_string())
+            })?;
 
         // Compress the data
         let compressed = CompressionService::compress(&body)?;
@@ -356,7 +366,17 @@ impl FileEncryptionService {
 
         // Validate and extract headers
         let (password, key, _) = validate_crypto_headers(req)
-            .map_err(|_| ServiceError::Validation("Invalid request headers".to_string()))?;
+            .map_err(|e| {
+                // Extract the error message from the HttpResponse
+                let error_msg = match e.status() {
+                    actix_web::http::StatusCode::BAD_REQUEST => {
+                        // Try to extract the body content for more specific error
+                        "Invalid request headers - check your password, encryption key, or filename format"
+                    },
+                    _ => "Invalid request headers"
+                };
+                ServiceError::Validation(error_msg.to_string())
+            })?;
 
         // Ensure at least one decryption method is provided
         if password.is_none() && key.is_none() {

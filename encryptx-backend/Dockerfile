@@ -12,7 +12,7 @@ WORKDIR /app
 
 # Copy dependency files first for better caching
 COPY Cargo.toml ./
-COPY Cargo.lock ./
+# Note: We don't copy Cargo.lock as it might not exist or be compatible
 
 # Create a dummy main.rs to build dependencies
 RUN mkdir src && echo "fn main() {}" > src/main.rs
@@ -29,9 +29,9 @@ FROM alpine:3.19
 
 # Install only runtime dependencies
 RUN apk add --no-cache \
-    ca-certificates \
-    libgcc \
-    wget
+	ca-certificates \
+	libgcc \
+	wget
 
 # Create non-root user for security
 RUN addgroup -g 1001 -S encryptx && \

@@ -343,17 +343,21 @@ export function EncryptForm() {
 
 	const encryptSingleFile = useCallback(async (file: File): Promise<void> => {
 		return new Promise((resolve, reject) => {
-			const xhr = new XMLHttpRequest()
-			const url = `${BACKEND_URL}${ENCRYPTION_ENDPOINT}`
+		const xhr = new XMLHttpRequest()
+		const url = `${BACKEND_URL}${ENCRYPTION_ENDPOINT}`
 
-			xhr.open("POST", url)
-			xhr.setRequestHeader("Content-Type", "application/octet-stream")
-			xhr.setRequestHeader("x-orig-filename", file.name)
+		xhr.open("POST", url)
+		xhr.setRequestHeader("Content-Type", "application/octet-stream")
+		xhr.setRequestHeader("x-orig-filename", file.name)
 
-			if (password) {
-				xhr.setRequestHeader("x-password", password)
-			}
+		if (password) {
+			// Use password-based encryption
+			xhr.setRequestHeader("x-password", password)
+			// Explicitly do NOT set x-enc-key header for password-based encryption
+		} else {
+			// Use key-based encryption with auto-generated key
 			// Don't send x-enc-key header - let backend generate the key
+		}
 
 			xhr.responseType = "blob"
 
