@@ -1,15 +1,18 @@
-# EncryptX Backend: File Encryption & Decryption API
+# EncryptX Backend: File Encryption & Decryption API (Archived & Unmaintained)
+
+> [!NOTE]
+> **Archive Notice:** This project is archived and the author is no longer actively working on it. It serves as a reference for learning Rust-based cryptography APIs.
 
 ## Overview
-EncryptX provides REST API endpoints for secure file encryption using AES-256-GCM authenticated encryption. Supports both key-based and password-based encryption modes with integrity verification and memory-safe operations.
+EncryptX provides a simple learning REST API for file encryption using AES-256-GCM. It supports key-based and password-based encryption modes with basic integrity verification.
 
-### Core Security Features
-- AES-256-GCM authenticated encryption (prevents tampering)
-- Argon2id password-based key derivation (GPU-resistant, 64 MB memory usage)
-- Memory-safe key handling with automatic cleanup
-- Cryptographically secure random nonce generation
-- File format versioning for backward compatibility
-- Built-in integrity verification
+### Core Implementation Details
+- AES-256-GCM authenticated encryption (standard Rust crates)
+- Argon2id password-based key derivation (64 MB memory configuration)
+- Basic memory cleanup for key buffers
+- Cryptographically secure random nonces
+- Backward compatibility format versioning
+- File tampering and integrity check integration
 
 ---
 

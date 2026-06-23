@@ -1,24 +1,23 @@
-# 🔐 EncryptX
+# 🔐 EncryptX (Archived & Unmaintained)
 
-**A modern, secure file encryption tool with both web interface and command-line access.**
+> [!IMPORTANT]
+> **Archive Notice:** This project is archived and the author is no longer actively working on it. It was created purely as a personal learning experiment to explore Rust-based file cryptography, Next.js, and API development.
 
-EncryptX provides military-grade AES-256-GCM encryption for any file type, featuring automatic compression, dual encryption modes, and a beautiful cyberpunk-themed interface.
+EncryptX is an educational file encryption utility providing a web interface and command-line access. It implements standard AES-256-GCM encryption for any file type, featuring automatic compression and dual encryption modes.
 
 ---
 
 ## ✨ Features
 
 - 🔑 **Dual Encryption Methods**: Use a password or 256-bit encryption key.
-- 🔐 **End-to-End Security**: AES-256-GCM ensures confidentiality and integrity.
-- 🧠 **Argon2id Password Hashing**: Secure key derivation for passwords.
-- 🛡️ **Tamper Detection**: Authenticated encryption blocks modification.
-- 📂 **Any File Type**: Works for docs, media, videos, archives — anything.
-- 📦 **Automatic Compression**: Files are compressed with zstd before encryption for efficient storage and transfer.
-- 🧱 **Large File Support**: Optimized for files up to 1GB.
-- 🖥️ **Modern UI**: Built with Next.js + Tailwind, featuring drag & drop and smooth feedback.
-- 🧼 **Memory-Safe Backend**: Rust ensures sensitive data is securely handled.
-- 🛡️ **Security Hardened**: Rate limiting, input validation, and security headers.
-- 🔒 **No Key Storage**: Keys are never stored server-side for maximum security.
+- 🔐 **Standard Security**: AES-256-GCM ensures confidentiality and integrity.
+- 🧠 **Argon2id Password Hashing**: Key derivation for password authentication.
+- 🛡️ **Tamper Detection**: Authenticated encryption detects modification.
+- 📂 **Any File Type**: Works for docs, media, archives, etc.
+- 📦 **Automatic Compression**: Files are compressed with zstd before encryption for learning-based size reduction.
+- 🖥️ **Subtle UI**: Built with Next.js + Tailwind, featuring drag & drop.
+- 🧼 **Memory-Safe Backend**: Rust handles sensitive cryptographic materials securely.
+- 🔒 **No Key Storage**: Keys are processed in-memory and never stored server-side.
 
 ---
 

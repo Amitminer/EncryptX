@@ -12,28 +12,19 @@ export const metadata: Metadata = {
  */
 export default function EncryptPage() {
   return (
-    <div className="container mx-auto px-4">
-      <div className="text-center">
-        <h1 className="text-5xl font-bold mb-4 text-white">Encrypt Files</h1>
-        <p className="text-gray-400 text-lg">
-          Securely encrypt your files with ease.
-        </p>
-      </div>
-
-      <div className="mt-12 max-w-4xl mx-auto text-center">
+      <div className="max-w-4xl mx-auto text-center pt-8">
         <EncryptForm />
         
-        <p className="text-gray-500 mb-8 max-w-lg">
+        <p className="text-gray-500 mb-6 max-w-lg mx-auto text-xs sm:text-sm">
           Need to decrypt a file instead?{" "}
           <a href="/decrypt" className="text-blue-400 hover:text-blue-300 underline font-medium">
             Go to Decrypt
           </a>
         </p>
 
-        <p className="text-sm text-gray-500 italic max-w-md mx-auto px-2 leading-relaxed">
+        <p className="text-[11px] sm:text-xs text-gray-500 italic max-w-md mx-auto px-2 leading-relaxed">
           Note: Files are processed temporarily and not stored. They are deleted after processing to ensure your privacy and security.
         </p>
       </div>
-    </div>
   )
 }

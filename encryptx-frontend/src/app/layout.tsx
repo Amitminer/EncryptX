@@ -25,7 +25,7 @@ export default function RootLayout({
       <body className={`${inter.className} min-h-screen text-white`}>
         <BackendKeepAlive />
         <Navigation />
-        <main>{children}</main>
+        <main className="pt-16 sm:pt-18">{children}</main>
         <Toaster 
           position="top-right"
           richColors

@@ -1,20 +1,20 @@
 {
 	"name": "encryptx",
-	"version": "1.6.1",
+	"version": "1.7.0",
 	"description": "EncryptX - A file encryption service with frontend and backend",
 	"scripts": {
-		"dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+		"dev": "concurrently \"bun run dev:backend\" \"bun run dev:frontend\"",
 		"dev:backend": "cd encryptx-backend && cargo run",
-		"dev:frontend": "cd encryptx-frontend && npm run dev",
-		"build": "concurrently \"npm run build:backend\" \"npm run build:frontend\"",
+		"dev:frontend": "cd encryptx-frontend && bun run dev",
+		"build": "concurrently \"bun run build:backend\" \"bun run build:frontend\"",
 		"build:backend": "cd encryptx-backend && cargo build --release",
-		"build:frontend": "cd encryptx-frontend && npm run build",
-		"start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+		"build:frontend": "cd encryptx-frontend && bun run build",
+		"start": "concurrently \"bun run start:backend\" \"bun run start:frontend\"",
 		"start:backend": "cd encryptx-backend && cargo run --release",
-		"start:frontend": "cd encryptx-frontend && npm run start",
-		"test": "concurrently \"npm run test:backend\" \"npm run test:frontend\"",
+		"start:frontend": "cd encryptx-frontend && bun run start",
+		"test": "concurrently \"bun run test:backend\" \"bun run test:frontend\"",
 		"test:backend": "cd encryptx-backend && cargo test",
-		"test:frontend": "cd encryptx-frontend && npm run test"
+		"test:frontend": "cd encryptx-frontend && bun run test"
 	},
 	"devDependencies": {
 		"concurrently": "^8.0.0"
